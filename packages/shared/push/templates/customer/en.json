@@ -1,0 +1,11 @@
+[
+  {"id":"ORDER_CONFIRMED","priority":"normal","title":"Order Confirmed","body":"Your order #{{order_id}} is confirmed!"},
+  {"id":"STORE_READY_FOR_PICKUP","priority":"normal","title":"Ready for pickup","body":"{{store_name}} packed your ingredients."},
+  {"id":"STORE_PICKED_UP","priority":"normal","title":"Picked up","body":"Ingredients collected ({{stops_done}}/{{stops_total}} stores)."},
+  {"id":"INGREDIENTS_DELIVERED","priority":"high","title":"Ingredients at chef!","body":"{{chef_name}} starts cooking now!"},
+  {"id":"MEAL_READY","priority":"high","title":"Meal ready!","body":"Your meal is ready for pickup."},
+  {"id":"MEAL_ON_THE_WAY","priority":"high","title":"On the way!","body":"ETA: {{eta_min}} minutes."},
+  {"id":"DELIVERED","priority":"high","title":"Delivered!","body":"Enjoy! Don't forget to rate."},
+  {"id":"SUBSTITUTION","priority":"high","title":"Substitution proposed","body":"{{store_name}} suggests a replacement."},
+  {"id":"REFUND","priority":"high","title":"Refund issued","body":"{{amount}} EGP refunded."}
+]

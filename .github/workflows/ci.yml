@@ -1,0 +1,50 @@
+name: CI
+on:
+  push: { branches: [main, develop] }
+  pull_request: { branches: [main] }
+env:
+  NODE_VERSION: '20'
+  FLUTTER_VERSION: '3.22.0'
+jobs:
+  api-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres: { image: 'postgres:16-alpine', env: { POSTGRES_DB: lahloba_test, POSTGRES_USER: lahloba, POSTGRES_PASSWORD: test }, ports: ['5432:5432'] }
+      redis: { image: 'redis:7-alpine', ports: ['6379:6379'] }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}' }
+      - run: cd apps/api && npm install
+      - run: cd apps/api && npm run lint
+      - run: cd apps/api && npm test
+        env: { DATABASE_URL: 'postgresql://lahloba:test@localhost:5432/lahloba_test', REDIS_URL: 'redis://localhost:6379', JWT_SECRET: 'test-secret-32chars-minimum!!' }
+  flutter-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '${{ env.FLUTTER_VERSION }}' }
+      - run: cd apps/mobile && flutter pub get
+      - run: cd apps/mobile && flutter analyze
+      - run: cd apps/mobile && flutter test
+  flutter-build-android:
+    needs: flutter-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '${{ env.FLUTTER_VERSION }}' }
+      - run: cd apps/mobile && flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with: { name: android-apk, path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk }
+  flutter-build-ios:
+    needs: flutter-test
+    runs-on: macos-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '${{ env.FLUTTER_VERSION }}' }
+      - run: cd apps/mobile && flutter build ios --release --no-codesign

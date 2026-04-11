@@ -1,0 +1,4 @@
+[
+  {"id":"NEW_BASKET","title":"سلة جديدة!","body":"طلب #{{order_id}}: {{item_count}} منتجات. جهّز قبل {{pickup_time}}."},
+  {"id":"DRIVER_ARRIVING","title":"السائق في الطريق","body":"السائق قادم لاستلام سلة الطلب #{{order_id}}."}
+]

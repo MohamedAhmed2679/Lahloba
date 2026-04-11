@@ -1,0 +1,5 @@
+[
+  {"id":"NEW_BASKET","priority":"high","title":"New basket to pack!","body":"Order #{{order_id}}: {{item_count}} items. Pack by {{pickup_time}}."},
+  {"id":"DRIVER_ARRIVING","priority":"normal","title":"Driver arriving","body":"Driver is coming to pick up basket for order #{{order_id}}."},
+  {"id":"SUBSTITUTION_REJECTED","priority":"normal","title":"Substitution rejected","body":"Customer declined the substitution for order #{{order_id}}."}
+]

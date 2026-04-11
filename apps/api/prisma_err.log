@@ -1,0 +1,408 @@
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+Error: Prisma schema validation - (get-config wasm)
+Error code: P1012
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:2
+   | 
+ 1 | generator client { provider = "prisma-client-js" }
+ 2 | datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+ 3 | 
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:4
+   | 
+ 3 | 
+ 4 | enum RoleType { CUSTOMER; CHEF; STORE; DELIVERY; ADMIN }
+ 5 | enum OrderStatus { CREATED; CONFIRMED; INGREDIENTS_SOURCING; INGREDIENTS_DELIVERED_TO_CHEF; CHEF_PREPARING; MEAL_READY; MEAL_ON_THE_WAY; DELIVERED; CANCELLED }
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:5
+   | 
+ 4 | enum RoleType { CUSTOMER; CHEF; STORE; DELIVERY; ADMIN }
+ 5 | enum OrderStatus { CREATED; CONFIRMED; INGREDIENTS_SOURCING; INGREDIENTS_DELIVERED_TO_CHEF; CHEF_PREPARING; MEAL_READY; MEAL_ON_THE_WAY; DELIVERED; CANCELLED }
+ 6 | enum IngredientSource { CHEF; STORES }
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:6
+   | 
+ 5 | enum OrderStatus { CREATED; CONFIRMED; INGREDIENTS_SOURCING; INGREDIENTS_DELIVERED_TO_CHEF; CHEF_PREPARING; MEAL_READY; MEAL_ON_THE_WAY; DELIVERED; CANCELLED }
+ 6 | enum IngredientSource { CHEF; STORES }
+ 7 | enum ComboMode { CHEAPEST; FASTEST }
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:7
+   | 
+ 6 | enum IngredientSource { CHEF; STORES }
+ 7 | enum ComboMode { CHEAPEST; FASTEST }
+ 8 | enum DeliveryTaskType { INGREDIENT_RUN; MEAL_RUN }
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:8
+   | 
+ 7 | enum ComboMode { CHEAPEST; FASTEST }
+ 8 | enum DeliveryTaskType { INGREDIENT_RUN; MEAL_RUN }
+ 9 | enum DeliveryTaskStatus { AVAILABLE; ASSIGNED; IN_PROGRESS; COMPLETED; CANCELLED }
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:9
+   | 
+ 8 | enum DeliveryTaskType { INGREDIENT_RUN; MEAL_RUN }
+ 9 | enum DeliveryTaskStatus { AVAILABLE; ASSIGNED; IN_PROGRESS; COMPLETED; CANCELLED }
+10 | enum PaymentStatus { PENDING; SUCCEEDED; FAILED }
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:10
+   | 
+ 9 | enum DeliveryTaskStatus { AVAILABLE; ASSIGNED; IN_PROGRESS; COMPLETED; CANCELLED }
+10 | enum PaymentStatus { PENDING; SUCCEEDED; FAILED }
+11 | enum RefundType { PARTIAL; FULL }
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:11
+   | 
+10 | enum PaymentStatus { PENDING; SUCCEEDED; FAILED }
+11 | enum RefundType { PARTIAL; FULL }
+12 | enum ChatMessageType { TEXT; IMAGE; SYSTEM }
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:12
+   | 
+11 | enum RefundType { PARTIAL; FULL }
+12 | enum ChatMessageType { TEXT; IMAGE; SYSTEM }
+13 | enum TicketStatus { OPEN; IN_PROGRESS; RESOLVED; CLOSED }
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:13
+   | 
+12 | enum ChatMessageType { TEXT; IMAGE; SYSTEM }
+13 | enum TicketStatus { OPEN; IN_PROGRESS; RESOLVED; CLOSED }
+14 | 
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:15
+   | 
+14 | 
+15 | model User {
+16 |   userId String @id @map("user_id")
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:16
+   | 
+15 | model User {
+16 |   userId String @id @map("user_id")
+17 |   role RoleType
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:17
+   | 
+16 |   userId String @id @map("user_id")
+17 |   role RoleType
+18 |   phone String? @unique
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:18
+   | 
+17 |   role RoleType
+18 |   phone String? @unique
+19 |   email String? @unique
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:19
+   | 
+18 |   phone String? @unique
+19 |   email String? @unique
+20 |   name String?
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:20
+   | 
+19 |   email String? @unique
+20 |   name String?
+21 |   avatarUrl String? @map("avatar_url")
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:21
+   | 
+20 |   name String?
+21 |   avatarUrl String? @map("avatar_url")
+22 |   locale String @default("en")
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:22
+   | 
+21 |   avatarUrl String? @map("avatar_url")
+22 |   locale String @default("en")
+23 |   ratingAvg Decimal? @default(0) @map("rating_avg") @db.Decimal(3,2)
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:23
+   | 
+22 |   locale String @default("en")
+23 |   ratingAvg Decimal? @default(0) @map("rating_avg") @db.Decimal(3,2)
+24 |   isActive Boolean @default(true) @map("is_active")
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:24
+   | 
+23 |   ratingAvg Decimal? @default(0) @map("rating_avg") @db.Decimal(3,2)
+24 |   isActive Boolean @default(true) @map("is_active")
+25 |   pushToken String? @map("push_token")
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:25
+   | 
+24 |   isActive Boolean @default(true) @map("is_active")
+25 |   pushToken String? @map("push_token")
+26 |   devicePlatform String? @map("device_platform")
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:26
+   | 
+25 |   pushToken String? @map("push_token")
+26 |   devicePlatform String? @map("device_platform")
+27 |   createdAt DateTime @default(now()) @map("created_at")
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:27
+   | 
+26 |   devicePlatform String? @map("device_platform")
+27 |   createdAt DateTime @default(now()) @map("created_at")
+28 |   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:28
+   | 
+27 |   createdAt DateTime @default(now()) @map("created_at")
+28 |   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+29 |   addresses Address[]
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:29
+   | 
+28 |   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+29 |   addresses Address[]
+30 |   chefProfile ChefProfile?
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:30
+   | 
+29 |   addresses Address[]
+30 |   chefProfile ChefProfile?
+31 |   storeProfile StoreProfile?
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:31
+   | 
+30 |   chefProfile ChefProfile?
+31 |   storeProfile StoreProfile?
+32 |   customerOrders Order[] @relation("CustomerOrders")
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:32
+   | 
+31 |   storeProfile StoreProfile?
+32 |   customerOrders Order[] @relation("CustomerOrders")
+33 |   chefOrders Order[] @relation("ChefOrders")
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:33
+   | 
+32 |   customerOrders Order[] @relation("CustomerOrders")
+33 |   chefOrders Order[] @relation("ChefOrders")
+34 |   deliveryTasks DeliveryTask[]
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:34
+   | 
+33 |   chefOrders Order[] @relation("ChefOrders")
+34 |   deliveryTasks DeliveryTask[]
+35 |   chatParts ChatParticipant[]
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:35
+   | 
+34 |   deliveryTasks DeliveryTask[]
+35 |   chatParts ChatParticipant[]
+36 |   chatMessages ChatMessage[]
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:36
+   | 
+35 |   chatParts ChatParticipant[]
+36 |   chatMessages ChatMessage[]
+37 |   payouts Payout[]
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:37
+   | 
+36 |   chatMessages ChatMessage[]
+37 |   payouts Payout[]
+38 |   createdTickets SupportTicket[] @relation("TicketCreator")
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:38
+   | 
+37 |   payouts Payout[]
+38 |   createdTickets SupportTicket[] @relation("TicketCreator")
+39 |   assignedTickets SupportTicket[] @relation("TicketAssignee")
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:39
+   | 
+38 |   createdTickets SupportTicket[] @relation("TicketCreator")
+39 |   assignedTickets SupportTicket[] @relation("TicketAssignee")
+40 |   ratings Rating[]
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:40
+   | 
+39 |   assignedTickets SupportTicket[] @relation("TicketAssignee")
+40 |   ratings Rating[]
+41 |   @@index([role])
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:41
+   | 
+40 |   ratings Rating[]
+41 |   @@index([role])
+42 |   @@map("users")
+   | 
+
+
+error: Error validating: This line is not a valid definition within a generator.
+  -->  prisma\schema.prisma:42
+   | 
+41 |   @@index([role])
+42 |   @@map("users")
+43 | }
+   | 
+
+
+error: Argument "provider" is missing in generator block "client".
+  -->  prisma\schema.prisma:1
+   | 
+   | 
+ 1 | generator client { provider = "prisma-client-js" }
+ 2 | datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+ 3 | 
+ 4 | enum RoleType { CUSTOMER; CHEF; STORE; DELIVERY; ADMIN }
+ 5 | enum OrderStatus { CREATED; CONFIRMED; INGREDIENTS_SOURCING; INGREDIENTS_DELIVERED_TO_CHEF; CHEF_PREPARING; MEAL_READY; MEAL_ON_THE_WAY; DELIVERED; CANCELLED }
+ 6 | enum IngredientSource { CHEF; STORES }
+ 7 | enum ComboMode { CHEAPEST; FASTEST }
+ 8 | enum DeliveryTaskType { INGREDIENT_RUN; MEAL_RUN }
+ 9 | enum DeliveryTaskStatus { AVAILABLE; ASSIGNED; IN_PROGRESS; COMPLETED; CANCELLED }
+10 | enum PaymentStatus { PENDING; SUCCEEDED; FAILED }
+11 | enum RefundType { PARTIAL; FULL }
+12 | enum ChatMessageType { TEXT; IMAGE; SYSTEM }
+13 | enum TicketStatus { OPEN; IN_PROGRESS; RESOLVED; CLOSED }
+14 | 
+15 | model User {
+16 |   userId String @id @map("user_id")
+17 |   role RoleType
+18 |   phone String? @unique
+19 |   email String? @unique
+20 |   name String?
+21 |   avatarUrl String? @map("avatar_url")
+22 |   locale String @default("en")
+23 |   ratingAvg Decimal? @default(0) @map("rating_avg") @db.Decimal(3,2)
+24 |   isActive Boolean @default(true) @map("is_active")
+25 |   pushToken String? @map("push_token")
+26 |   devicePlatform String? @map("device_platform")
+27 |   createdAt DateTime @default(now()) @map("created_at")
+28 |   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+29 |   addresses Address[]
+30 |   chefProfile ChefProfile?
+31 |   storeProfile StoreProfile?
+32 |   customerOrders Order[] @relation("CustomerOrders")
+33 |   chefOrders Order[] @relation("ChefOrders")
+34 |   deliveryTasks DeliveryTask[]
+35 |   chatParts ChatParticipant[]
+36 |   chatMessages ChatMessage[]
+37 |   payouts Payout[]
+38 |   createdTickets SupportTicket[] @relation("TicketCreator")
+39 |   assignedTickets SupportTicket[] @relation("TicketAssignee")
+40 |   ratings Rating[]
+41 |   @@index([role])
+42 |   @@map("users")
+43 | }
+   | 
+
+Validation Error Count: 40
+[Context: getConfig]
+
+Prisma CLI Version : 5.22.0

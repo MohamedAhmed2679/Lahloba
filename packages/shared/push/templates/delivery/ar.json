@@ -1,0 +1,5 @@
+[
+  {"id":"NEW_TASK","title":"مهمة جديدة!","body":"{{stop_count}} محطات، {{payout}} ج.م. اضغط للقبول."},
+  {"id":"ALL_PICKED_UP","title":"تم الاستلام!","body":"توجه إلى {{destination}} للتوصيل."},
+  {"id":"PAYOUT_COMPLETED","title":"تم الدفع","body":"{{amount}} ج.م تم إيداعها."}
+]

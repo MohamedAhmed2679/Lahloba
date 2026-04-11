@@ -1,0 +1,54 @@
+# Client-side operations for Flutter/mobile
+
+query GetMeals($page: Int, $type: String) {
+  meals(page: $page, type: $type) {
+    meal_id name_en name_ar type base_price_minor
+    prep_time_min rating_avg image_url is_favorite
+    chef { chef_id name }
+  }
+}
+
+query GetMeal($id: ID!) {
+  meal(id: $id) {
+    meal_id name_en name_ar description_en description_ar
+    type base_price_minor prep_time_min allergens rating_avg
+    image_url order_count is_favorite
+    chef { chef_id name bio hygiene_score rating_avg }
+    ingredients { ingredient_id name_en name_ar qty unit }
+  }
+}
+
+query SearchMeals($query: String!, $type: String, $sort: String) {
+  searchMeals(query: $query, type: $type, sort: $sort) {
+    hits { meal_id name_en name_ar type base_price_minor rating_avg image_url chef { name } }
+    total processing_time_ms
+  }
+}
+
+query MyOrders($page: Int) {
+  myOrders(page: $page) {
+    order_id status servings scheduled_at created_at
+    meal { meal_id name_en name_ar image_url }
+    pricing { total { amount_minor currency } }
+    tracking { eta_minutes current_status }
+  }
+}
+
+query MyLoyalty {
+  myLoyalty {
+    tier points_balance lifetime_points referral_code
+    tier_benefits { points_multiplier free_delivery_per_month discount_pct }
+  }
+}
+
+mutation PlaceOrder($input: CreateOrderInput!) {
+  createOrder(input: $input) { order_id status pricing { total { amount_minor } } }
+}
+
+mutation ToggleFavorite($mealId: ID!) {
+  addFavorite(mealId: $mealId)
+}
+
+subscription OrderUpdates($orderId: ID!) {
+  orderUpdated(orderId: $orderId) { order_id status tracking { eta_minutes current_status steps { label completed } } }
+}

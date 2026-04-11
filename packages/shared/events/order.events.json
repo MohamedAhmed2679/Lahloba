@@ -1,0 +1,6 @@
+{"events":[
+  {"type":"order.created","version":"1.0","data":{"order_id":"ord_10001","customer_id":"usr_cust_001","chef_id":"usr_chef_001","meal_id":"meal_001","servings":2,"ingredient_source":"STORES","scheduled_at":"2026-03-17T14:00:00+02:00","pricing":{"chef_service_fee":{"amount_minor":15000,"currency":"EGP"},"ingredients_total":{"amount_minor":8500,"currency":"EGP"},"delivery_fees":{"ingredients_run_fee":{"amount_minor":2500,"currency":"EGP"},"meal_run_fee":{"amount_minor":2000,"currency":"EGP"}},"platform_fee":{"amount_minor":0,"currency":"EGP"},"total":{"amount_minor":28000,"currency":"EGP"}}}},
+  {"type":"order.status_changed","version":"1.0","data":{"order_id":"ord_10001","previous_status":"CREATED","new_status":"CONFIRMED","order_version":2}},
+  {"type":"order.cancelled","version":"1.0","data":{"order_id":"ord_10001","reason":"customer_request","cancelled_by":"usr_cust_001"}},
+  {"type":"order.refunded","version":"1.0","data":{"order_id":"ord_10001","refund_id":"ref_001","refund_type":"PARTIAL","amount_minor":8500,"components":{"ingredients":8500,"chef_service":0,"delivery":0,"platform_fee":0}}}
+]}

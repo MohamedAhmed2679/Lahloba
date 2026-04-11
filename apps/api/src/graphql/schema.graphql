@@ -1,0 +1,174 @@
+# Lahloba GraphQL Schema
+# Optimized for mobile to reduce over-fetching
+
+type Query {
+  # Meals
+  meals(page: Int = 1, pageSize: Int = 20, type: MealType, chefId: ID): MealConnection!
+  meal(id: ID!): Meal
+  searchMeals(query: String!, type: MealType, maxPrice: Float): MealSearchResult!
+
+  # Orders
+  myOrders(page: Int = 1, status: OrderStatus): OrderConnection!
+  order(id: ID!): Order
+
+  # Favorites
+  myFavorites(page: Int = 1): FavoriteConnection!
+  isFavorited(mealId: ID!): Boolean!
+  reorderSuggestions(limit: Int = 10): [ReorderSuggestion!]!
+
+  # Loyalty
+  loyaltyAccount: LoyaltyAccount!
+  loyaltyRewards: [LoyaltyReward!]!
+  loyaltyTransactions(page: Int = 1): LoyaltyTxnConnection!
+
+  # Availability
+  chefAvailability(chefId: ID!, from: String!, to: String!): AvailabilityCalendar!
+
+  # Analytics (chef/store role)
+  myAnalytics(from: String!, to: String!): AnalyticsSummary!
+
+  # Profile
+  me: User!
+  myAddresses: [Address!]!
+}
+
+type Mutation {
+  # Auth
+  requestOtp(phone: String, email: String): OtpResponse!
+  verifyOtp(phone: String, email: String, code: String!): AuthResponse!
+
+  # Orders
+  createOrder(input: CreateOrderInput!): Order!
+  cancelOrder(id: ID!, reason: String): Order!
+
+  # Favorites
+  toggleFavorite(mealId: ID!): FavoriteToggleResult!
+  reorder(orderId: ID!): ReorderResult!
+
+  # Loyalty
+  redeemReward(rewardId: ID!): RedemptionResult!
+
+  # Ratings
+  submitRating(input: RatingInput!): Rating!
+
+  # Chat
+  sendMessage(roomId: ID!, text: String!, type: MessageType = TEXT): ChatMessage!
+}
+
+type Subscription {
+  orderUpdated(orderId: ID!): OrderUpdate!
+  newMessage(roomId: ID!): ChatMessage!
+  taskStatusChanged(taskId: ID!): TaskUpdate!
+}
+
+# ── Types ──
+
+enum MealType { COOKED, READY_TO_COOK }
+enum OrderStatus { CREATED, CONFIRMED, INGREDIENTS_SOURCING, INGREDIENTS_DELIVERED_TO_CHEF, CHEF_PREPARING, MEAL_READY, MEAL_ON_THE_WAY, DELIVERED, CANCELLED }
+enum MessageType { TEXT, IMAGE, SYSTEM }
+enum LoyaltyTier { BRONZE, SILVER, GOLD, PLATINUM }
+enum ComboMode { CHEAPEST, FASTEST }
+
+type Money { amountMinor: Int!, currency: String! }
+
+type User { id: ID!, role: String!, name: String, phone: String, email: String, locale: String!, avatarUrl: String, ratingAvg: Float }
+type Address { id: ID!, label: String!, line1: String!, city: String!, region: String!, lat: Float!, lng: Float!, isDefault: Boolean! }
+
+type Meal {
+  id: ID!
+  nameEn: String!
+  nameAr: String!
+  descriptionEn: String
+  descriptionAr: String
+  type: MealType!
+  basePriceMinor: Int!
+  prepTimeMin: Int!
+  allergens: [String!]!
+  imageUrl: String
+  ratingAvg: Float
+  orderCount: Int
+  chef: ChefProfile!
+  ingredients: [MealIngredient!]!
+  isFavorited: Boolean
+}
+
+type ChefProfile { id: ID!, name: String!, bio: String, hygieneScore: Float, isAvailable: Boolean!, ratingAvg: Float }
+type MealIngredient { ingredientId: ID!, nameEn: String!, nameAr: String!, qty: Float!, unit: String!, isOptional: Boolean! }
+
+type Order {
+  id: ID!
+  status: OrderStatus!
+  meal: Meal!
+  servings: Int!
+  scheduledAt: String!
+  pricing: OrderPricing!
+  chefName: String!
+  address: Address!
+  chatRoomId: String
+  createdAt: String!
+  eta: EtaPrediction
+}
+
+type OrderPricing {
+  chefServiceFee: Money!
+  ingredientsTotal: Money!
+  ingredientsRunFee: Money!
+  mealRunFee: Money!
+  platformFee: Money!
+  total: Money!
+}
+
+type EtaPrediction { minutes: Int!, range: EtaRange!, confidence: Float! }
+type EtaRange { min: Int!, max: Int! }
+
+type LoyaltyAccount {
+  tier: LoyaltyTier!
+  availablePoints: Int!
+  lifetimePoints: Int!
+  nextTier: NextTierInfo
+}
+type NextTierInfo { tier: LoyaltyTier!, pointsNeeded: Int! }
+type LoyaltyReward { id: ID!, nameEn: String!, nameAr: String!, costPoints: Int!, rewardType: String!, rewardValue: Int!, minTier: LoyaltyTier! }
+type LoyaltyTxn { id: ID!, action: String!, points: Int!, balanceAfter: Int!, description: String, createdAt: String! }
+
+type AvailabilityCalendar { chefId: ID!, days: [AvailabilityDay!]! }
+type AvailabilityDay { date: String!, isAvailable: Boolean!, slots: [TimeSlot!]!, isOverride: Boolean!, isBlocked: Boolean! }
+type TimeSlot { start: String!, end: String!, maxOrders: Int! }
+
+type ReorderSuggestion { mealId: ID!, mealName: String!, chefName: String!, lastOrderedAt: String!, price: Int!, imageUrl: String }
+type AnalyticsSummary { ordersCompleted: Int!, revenue: Money!, avgRating: Float, topMealId: String, peakHour: Int }
+
+type Rating { id: ID!, chefScore: Int, deliveryScore: Int, mealScore: Int, comment: String }
+type ChatMessage { id: ID!, senderId: ID!, senderRole: String!, text: String, type: MessageType!, createdAt: String! }
+
+type OrderUpdate { orderId: ID!, status: OrderStatus!, version: Int!, eta: EtaPrediction }
+type TaskUpdate { taskId: ID!, status: String!, assignedTo: ID }
+
+# ── Connections (pagination) ──
+type MealConnection { items: [Meal!]!, total: Int!, page: Int!, pageSize: Int! }
+type OrderConnection { items: [Order!]!, total: Int!, page: Int! }
+type FavoriteConnection { items: [Meal!]!, total: Int!, page: Int! }
+type LoyaltyTxnConnection { items: [LoyaltyTxn!]!, total: Int!, page: Int! }
+type MealSearchResult { meals: [Meal!]!, total: Int!, query: String!, processingMs: Int! }
+
+# ── Inputs ──
+input CreateOrderInput {
+  mealId: ID!
+  chefId: ID!
+  servings: Int!
+  ingredientSource: String!
+  comboMode: ComboMode
+  comboId: String
+  scheduledAt: String!
+  addressId: ID!
+  notesToChef: String
+}
+
+input RatingInput { orderId: ID!, chefScore: Int, deliveryScore: Int, mealScore: Int, comment: String }
+
+# ── Results ──
+type OtpResponse { message: String!, expiresIn: Int! }
+type AuthResponse { accessToken: String!, refreshToken: String!, user: User! }
+type FavoriteToggleResult { isFavorited: Boolean!, mealId: ID! }
+type ReorderResult { mealId: ID!, chefId: ID!, servings: Int!, pricing: OrderPricing!, message: String! }
+type RedemptionResult { code: String!, discountMinor: Int!, expiresAt: String!, pointsSpent: Int!, newBalance: Int! }

@@ -1,0 +1,5 @@
+# Update these paths for your system:
+# sdk.dir=/Users/<you>/Library/Android/sdk          # macOS
+# sdk.dir=C:\\Users\\<you>\\AppData\\Local\\Android\\sdk  # Windows
+# sdk.dir=/home/<you>/Android/Sdk                    # Linux
+# flutter.sdk=/path/to/flutter

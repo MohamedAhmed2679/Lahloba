@@ -1,0 +1,5 @@
+[
+  {"id":"NEW_ORDER","title":"طلب جديد!","body":"{{customer_name}} طلب {{meal_name}} ({{servings}} حصص)."},
+  {"id":"INGREDIENTS_DELIVERED","title":"المكونات وصلت!","body":"كل المكونات وصلت. ابدأ طبخ الطلب #{{order_id}}!"},
+  {"id":"SUBSTITUTION_PROPOSED","title":"بديل يحتاج موافقة","body":"{{store_name}} اقترح بديل. اضغط للمراجعة."}
+]
