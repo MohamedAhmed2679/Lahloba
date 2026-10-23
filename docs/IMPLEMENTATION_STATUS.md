@@ -1,67 +1,81 @@
-# Implementation status — after Slice 1
+# Implementation status — Slices 1–4 (sandbox)
+
+Everything below runs end to end against PostgreSQL in automated tests. Money never moves:
+the only payment provider is a **sandbox simulator**, refused when `LAHLOBA_ENV=production`.
 
 ## Implemented and tested
 
-- Monorepo with typed config (dev/test/staging/production separation, fail-closed rules).
-- PostgreSQL schema (2 migrations, reversible): users, scoped role memberships, partner
-  applications with private evidence references, chefs/suppliers/couriers, service areas, private
-  addresses, normalized facets + aliases + collections, ingredients with allergen data status,
-  dishes, immutable published recipe versions/BOM, offer variants with price history, supplier
-  products and stock balances, append-only audit, transactional outbox, idempotency records.
-- `/v1` API: public catalog (areas, facets, offers with facet counts + cursor pagination, chef
-  profile, offer detail, groceries, learning), identity (`/me`), partner applications, evidence
-  references, operations review, chef menu (dish, recipe version, variant, pricing, publish,
-  availability), supplier branches/products, dev-only token issuance.
-- Outbox worker with leases, backoff and dead-lettering.
-- Customer app (Expo, web export verified): area selection with optional location, five entry
-  cards, results with independent filters, chef profile, dish/variant detail with servings and
-  ingredient transparency, groceries by category, recipes. Arabic/English with RTL.
-- Partner app (Expo, web export verified): dev sign-in, explicit role switcher, chef/supplier/courier
-  applications, evidence reference, chef menu drafts, supplier product publishing.
-- Operations console (Vite): verification queue, evidence metadata, approve/reject with reason.
+**Platform**
+- Monorepo, typed config with fail-closed rules per environment (dev/test/staging/production).
+- PostgreSQL, 5 reversible migrations: identity and scoped roles; partners and private evidence;
+  catalog (facets, recipes/BOM, offers, price history, supplier products, stock); kitchen capacity
+  (work units per slot, overlap exclusion); area coordinates and delivery tariffs; quotes
+  (immutable snapshot), orders with independent fulfilment / funding / chef-acceptance states,
+  inventory holds, supplier sub-orders, per-recipient payment allocations and attempts, provider
+  events (de-duplicated), refunds, double-entry ledger (balance checked at commit), delivery legs,
+  stops and hashed handoff codes, chef ingredient acceptance.
+- Idempotency for every mutation, append-only audit, transactional outbox, worker with leases.
+- Scheduled sweep: expires quotes and unpaid holds, cancels on partner deadlines (with refunds),
+  reconciles unanswered payments. Runs in the worker and as a Vercel Cron route.
 
-## Unimplemented production integrations (exact list)
+**Sign-in** — Clerk (one-time codes by phone or email) in the customer and partner apps and the
+operations console; the API verifies Clerk session tokens (RS256, issuer, authorized parties).
+The development identity stub still exists for local work and CI and is refused elsewhere.
 
-| Integration | Current state |
+**Documents** — partners upload PDF/JPEG/PNG (≤ 4 MB) per required document from files, photos
+or the camera. The API checks the real file signature, strips photo metadata (EXIF/GPS, PNG text),
+stores the file privately (local disk in dev/CI, private Vercel Blob when deployed) and records a
+SHA-256. Reviewers open files only through 5-minute signed links; issuing and serving are audited.
+
+**Kitchen capacity** — chefs open kitchen times with a work-unit capacity; offers show the next
+times and the people each can still take; fully booked kitchens drop out of discovery and say so.
+
+**Ordering (customer)** — choose who buys the ingredients and a kitchen time; the server prices
+the cooking fee, packaging, ingredients (chef-supplied, or the cheapest complete basket across
+shops with per-ingredient switching, pack maths and leftovers), the ingredient trip (20 EGP) and
+the delivery fee (tariff table). Each line shows who it is paid to. Placing an order holds
+capacity and stock for 30 minutes.
+
+**Payments (sandbox)** — pay first. One attempt per recipient; a sandbox payment page offers
+succeed / decline / timeout. Webhooks are HMAC-signed, verified and de-duplicated; timeouts are
+reconciled, never retried blindly; partial failures can be retried for the failed recipient only;
+refunds are automatic on any cancellation, including a late success on a cancelled order.
+
+**Fulfilment** — chef accepts or declines (refund); shops confirm or reject (refund); an
+ingredient run collects from every shop with each shop's code and hands over with the chef's code;
+the chef checks the ingredients item by item (delivery is not acceptance); cooking requires
+funding, confirmed capacity and accepted ingredients (also enforced by database checks); the meal
+run is collected with the chef's code and delivered with the customer's code. Wrong codes lock
+after five tries. Couriers see exact addresses only after claiming a job.
+
+**Maps** — OpenStreetMap (Leaflet) in the customer order page and courier job cards. Only public,
+approximate area centroids are drawn.
+
+**Apps and branding** — the "Honest Ladle" brand kit is applied: colour tokens with dark mode,
+Readex Pro / IBM Plex Sans (Arabic), drawn logo lockups, service icons, app icons and splash
+screens, role colour strips. Area and language are remembered across restarts.
+
+**Native** — GitHub Actions builds release Android APKs and iOS Simulator apps for both apps and
+runs Maestro flows on an emulator/simulator against a real API and database (browse, servings,
+Arabic, remembered area, sign-in, checkout, sandbox payment, chef workspace, courier jobs).
+EAS cloud builds run when the `EXPO_TOKEN` secret is set.
+
+## Not production-ready (exact list)
+
+| Area | State |
 |---|---|
-| Identity provider (OIDC) | Server-side JWT/JWKS verification adapter exists and is unit-tested with a local JWKS. **Not connected to any provider; no client login flow (PKCE) in apps.** |
-| Customer sign-in | None. Customer browsing is anonymous in Slice 1. |
-| Private evidence/media storage | Port only; modes `disabled` / `dev-metadata-only`. No upload, signed URLs, malware scan or metadata stripping. |
-| Notifications (SMS/push/email) | Disabled adapter; worker records `NOTIFICATION_ADAPTER_DISABLED`. |
-| Payments, refunds, ledger, settlement | Not started (Slice 3). No payment code exists. |
-| Maps / geocoding / routing / geospatial | Not started; location only shows a hint. PostGIS not used. |
-| Dispatch / courier jobs | Not started (Slice 4). |
-| Session persistence on device | Tokens and selected area are in memory; a reload loses them. |
-| Deployment, secrets manager, TLS, backups, monitoring | Not started; hosting provider undecided. CI workflow file is provided but has not been executed. |
-| Production ops-role provisioning | Only a development CLI (`ops:grant:dev`). Needs a reviewed, dual-approval procedure. |
+| Real payments | Simulator only. A real provider (e.g. Paymob) adapter, merchant onboarding, payouts and settlement are not built. Funds-flow model is still an open founder decision. |
+| Notifications | Disabled adapter (no SMS/push/email); partners must keep the app open to see orders. |
+| Malware scanning of documents | Files are marked `NOT_SCANNED`; the console warns reviewers. |
+| Live courier location | Tracking shows leg status on area-level points, not GPS. |
+| Distance-based tariffs | Area-pair table with illustrative fees; distance bands are an open decision. |
+| Ops roles in production | Staging CLI grant only; production needs a dual-approval procedure. |
+| Screen readers on devices | Accessibility labels and roles are set; VoiceOver/TalkBack have not been run by a person. |
+| Arabic copy | Draft; needs native review. |
+| Store release | No signing certificates, store listings or production EAS profiles. |
 
-## Known limitations
+## Open founder decisions (unchanged)
 
-- "Full" chefs are not excluded from results because capacity (H04) is a later story.
-- Partner UI covers drafts only: variant, recipe-version and publish actions exist in the API but
-  not yet as screens.
-- Supplier staff invitations (branch-scoped `SUPPLIER_STAFF`) are modelled and enforced but there is
-  no invite flow.
-- Evidence expiry is stored and indexed but no job blocks work on expiry yet.
-- Idempotency records expire after 24 h but no cleanup job is scheduled.
-- Large-text support relies on `allowFontScaling` and flexible layouts; it has not been checked on
-  devices. Screen-reader behaviour has not been checked with VoiceOver/TalkBack.
-- Arabic copy is a proposed draft and needs native copy review; labels like "Vegetarian (declared by
-  chef)" deliberately avoid verification claims.
-- Rate limiting is per IP and in-memory (single process).
-
-## Decision log
-
-See `docs/adr/0001-slice-1-foundation.md`. Blueprint decisions still open (doc 07) are unchanged:
-funds flow, tariff distance bands, ingredient-trip eligibility, home-kitchen legality, partner
-verification criteria, hosting/residency.
-
-## Next recommended slice: Slice 2 — quotes and checkout (prompt 02)
-
-Checklist before starting:
-- [ ] Founder decisions: tariff bands for 20–75 EGP, ingredient-trip eligibility limits, quote TTL.
-- [ ] Choose geospatial approach (PostGIS) and a routing/eligibility source.
-- [ ] Pick the identity provider; implement customer sign-in (PKCE) before checkout.
-- [ ] Capacity model (H04) and inventory reservations (S03) with concurrency tests.
-- [ ] Partner UI for variants/recipes/publish (API already exists).
-- [ ] Persist selected area and drafts on device (C24).
+Funds flow and settlement timing; tariff distance bands; ingredient-trip eligibility limits;
+cancellation policy after the cook accepts; home-kitchen legality; partner verification criteria;
+hosting and data residency.

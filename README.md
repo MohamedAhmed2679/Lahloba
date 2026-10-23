@@ -1,27 +1,28 @@
-# Lahloba — Slice 1 foundation
+# Lahloba — home-cooked food, ordered fairly
 
-> **Status: development foundation, NOT production-ready.** No live payments, no real identity
-> provider wired into the clients, no private evidence storage, no deployment. Sample data is
-> fictional and labelled. See [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md).
+> **Status: staging-ready sandbox, NOT production.** Payments use a sandbox simulator (no real
+> money). Sample partners and prices are fictional and labelled "(sample)". Exact list of what is
+> and isn't production-ready: [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md).
 
-This repository implements **Slice 1 (repository, identity and catalog foundation)** from the
-Lahloba blueprint (`prompts/01_FOUNDATION.md`): stories C01–C05, C23, H01–H03, S01–S02, D01 and
-O01 foundations. Story-to-code mapping: [`docs/TRACEABILITY.md`](docs/TRACEABILITY.md).
-Architecture decisions: [`docs/adr/0001-slice-1-foundation.md`](docs/adr/0001-slice-1-foundation.md).
-Verified results: [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
+Implements the blueprint's Slices 1–4 end to end: catalog and discovery, Clerk sign-in, partner
+onboarding with private document upload, kitchen capacity, server-priced quotes with shop-basket
+comparison, orders, sandbox split payments with refunds, chef/shop/courier fulfilment with handoff
+codes, and two-leg delivery tracking on OpenStreetMap. Story mapping:
+[`docs/TRACEABILITY.md`](docs/TRACEABILITY.md). Verification: [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
 
 ## Layout
 
 ```text
 apps/api/          Fastify /v1 API, SQL migrations, identity adapters, dev seed, integration tests
 apps/worker/       Transactional-outbox worker (SKIP LOCKED leases, backoff, dead-letter)
-apps/customer/     Expo (iOS/Android/web) customer app: area, entry cards, results, chef, dish, groceries, learn
-apps/partner/      Expo partner app: role switcher, chef/supplier/courier applications, chef menu, supplier products
-apps/operations/   Protected operations web console (Vite + React): partner verification queue
+apps/customer/     Expo (iOS/Android/web) customer app: discovery, checkout, sandbox payment, order tracking
+apps/partner/      Expo partner app: applications + documents, chef orders/kitchen times/menu, shop orders, courier jobs
+apps/operations/   Operations console (Vite + React, Clerk): verification queue with private document viewing
+packages/app-shell/ Shared app plumbing: Clerk/dev sign-in, device storage, brand fonts, OpenStreetMap view
 packages/domain/   Money (integer piastres), portions, quotes, state guards, facets, authorization policy
 packages/contracts/ Zod API contracts + typed API client
 packages/i18n/     Arabic/English resources, RTL, money/quantity formatting
-packages/ui/       Replaceable neutral design tokens + accessible React Native primitives
+packages/ui/       Brand tokens (light/dark), drawn logos and icons, accessible React Native primitives
 packages/config/   Typed server configuration with dev/staging/production separation
 ```
 
@@ -76,7 +77,26 @@ TEST_DATABASE_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm test
 database. Without it, database tests are reported as *skipped*, never as passed.
 
 Web builds: `pnpm build:web` (Expo web export for both apps + Vite build for operations).
-Native iOS/Android builds were not run (see `docs/VERIFICATION.md`).
+Native builds and on-device tests run in GitHub Actions (`.github/workflows/native.yml`): release
+Android APKs on an emulator and iOS Simulator builds, each exercised with Maestro (`.maestro/`).
+
+## Deployment (Vercel)
+
+Four Vercel projects from this repository, each with its own root directory:
+
+| Project | Root | Notes |
+|---|---|---|
+| API | `apps/api` | Bundled Fastify function; build runs migrations (and the illustrative seed when `LAHLOBA_SEED_ILLUSTRATIVE=true`, never in production). Cron calls `/v1/internal/sweep` every 5 minutes with `CRON_SECRET`. |
+| Customer web | `apps/customer` | Expo web export. `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`. |
+| Partner web | `apps/partner` | Same variables as customer. |
+| Operations | `apps/operations` | `VITE_API_URL`, `VITE_CLERK_PUBLISHABLE_KEY`. |
+
+API environment (staging): `LAHLOBA_ENV=staging`, `DATABASE_URL` (Neon), `IDENTITY_PROVIDER=clerk`,
+`CLERK_PUBLISHABLE_KEY`, `CLERK_AUTHORIZED_PARTIES` (the three web origins), `CORS_ORIGINS`,
+`EVIDENCE_STORAGE=vercel-blob` (private store), `STORAGE_SIGNING_SECRET`, `PUBLIC_API_URL`,
+`PAYMENTS_PROVIDER=simulator`, `PAYMENTS_SIMULATOR_SECRET`, `HANDOFF_CODE_SECRET`, `CRON_SECRET`.
+Make a signed-in Clerk user an operations reviewer on staging:
+`pnpm --filter @lahloba/api ops:grant clerk:<user id>`.
 
 ## Security notes
 

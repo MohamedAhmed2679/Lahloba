@@ -1,4 +1,4 @@
-# Requirements traceability — Slice 1
+# Requirements traceability — Slices 1–4
 
 Story IDs from the blueprint `docs/03_STORIES_AND_ACCEPTANCE.md`. "Foundation" means the slice
 builds the groundwork the story needs; the full story completes in a later slice.
@@ -27,3 +27,18 @@ builds the groundwork the story needs; the full story completes in a later slice
 Cross-cutting authorization tests: `apps/api/test/chef-supplier.test.ts` ("cross-role denial…",
 "suspending a membership…") and `partners-ops.test.ts` (unauthenticated, forged tokens, role
 escalation in body, suspended accounts).
+
+## Slices 2–4 (sandbox payments)
+
+| Story | Scope | API routes | Schema | Code | Tests |
+|---|---|---|---|---|---|
+| **C04/H04** Kitchen capacity, full kitchens hidden | Done | `GET/POST /v1/chef/:id/capacity-slots`, `…/cancel`; `availability`/`slots` on offers | `chef_capacity_slots` (EXCLUDE overlap), `capacity_reservations` | `capacity.ts`, `ChefSlotsPanel`, offer detail | capacity.test (concurrency, full kitchen hidden), screens.test |
+| **C08–C10** Quote, compare, checkout | Done | `POST /v1/quotes`, `POST /v1/orders` | `quotes` (immutable), `orders`, `inventory_reservations`, `supplier_suborders`, `delivery_tariffs` | `orders/quote.ts`, `orders/service.ts`, `CheckoutScreen` | orders.test (founder example, basket comparison, choices, stale/used quotes), screens.test |
+| **C11** Pay (sandbox) | Done (simulator) | `POST /v1/orders/:id/payments`, `POST /v1/sandbox/payments/:id/complete`, `POST /v1/webhooks/payments/simulator` | `payment_allocations`, `payment_attempts`, `provider_events`, `ledger_entries` | `handleProviderEvent`, `OrderScreen` | orders.test (split failure + retry, forged/replayed webhooks, timeout reconciliation, balanced ledger) |
+| **C12–C14** Track, codes, cancel | Done | `GET /v1/orders`, `GET /v1/orders/:id`, `POST …/cancel` | `order_events`, `delivery_legs` | `OrderScreen`, `OsmMap` | orders.test, screens.test |
+| **H05–H09** Chef accepts, checks ingredients, cooks | Done | `/v1/chef/:id/orders`, `…/respond`, `…/ingredients`, `…/start`, `…/ready` | `ingredient_acceptances`, order DB checks | `orders/fulfilment.ts`, `ChefOrdersPanel` | orders.test, partner.test |
+| **S03–S05** Shop holds stock, confirms, hands over | Done | `/v1/supplier/branches/:id/suborders`, `…/respond` | `inventory_reservations`, `supplier_suborders` | `SupplierOrdersPanel` | orders.test, partner.test |
+| **D02–D05** Courier jobs and handoffs | Done | `/v1/courier/jobs`, `…/claim`, `…/stops/:id/collect`, `…/deliver` | `delivery_stops`, hashed codes, attempt counters | `orders/handoff.ts`, `CourierJobsScreen` | orders.test (privacy before claim, code lock), partner.test |
+| **O01** View partner documents | Done | `PUT /v1/partner-evidence/:id/content`, `POST /v1/ops/partner-evidence/:id/link`, `GET /v1/evidence-files/:id` | `partner_evidence.sha256/scan_state` | `storage/files.ts`, `storage/evidence.ts`, `OpsApp` | evidence.test, ops.test |
+| **O05** Compensation | Done | automatic on decline/reject/timeout/cancel | `refunds`, funding states | `cancelOrder`, `sweep` | orders.test |
+| **C24** Remember area and language | Done | — | device storage | `AppContext`, `app-shell/storage` | screens.test, Maestro relaunch |
