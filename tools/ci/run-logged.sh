@@ -13,9 +13,9 @@ if [ $status -ne 0 ]; then
   # Real error lines only (compiler/linker/script errors, Gradle "What went wrong", test failures);
   # long command lines are cut so the annotation stays readable.
   errs=$( { grep -nE "(^|[: ])(error|fatal error):|xcodebuild: error|BUILD FAILED|The following build commands failed|^[[:space:]]+(CompileC|SwiftCompile|SwiftEmitModule|PhaseScriptExecution|Ld|CompileSwiftSources|GenerateDSYMFile) |What went wrong|^> |FAILURE:|Execution failed|❌|FAILED|Error: |Exception" "$log" || true; } \
-    | grep -vE "warning:|-Werror|-Wno-error" | cut -c1-400 | head -n 120)
+    | grep -vE "warning:|-Werror|-Wno-error|RegisterExecutionPolicyException|^[0-9]+:note:" | cut -c1-400 | head -n 120)
   [ -n "$errs" ] && echo "::error title=${label} (matched errors)::$(printf '%s' "$errs" | enc)"
-  echo "::error title=${label} (last 60 lines)::$(tail -n 60 "$log" | enc)"
+  echo "::error title=${label} (last 60 lines)::$(grep -v '^note:' "$log" | tail -n 60 | enc)"
   { echo "### ${label} failed"; echo '```'; tail -n 80 "$log"; echo '```'; } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 fi
 exit $status
