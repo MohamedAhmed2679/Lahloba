@@ -68,10 +68,8 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            adb install -r apps/${{ matrix.app }}/android/app/build/outputs/apk/release/app-release.apk
-            tools/ci/run-logged.sh maestro-android maestro test .maestro/${{ matrix.app }} --format junit --output maestro-android-${{ matrix.app }}.xml --test-output-dir maestro-android-${{ matrix.app }}
-      - uses: actions/upload-artifact@v4
+          script: tools/ci/device-e2e.sh android ${{ matrix.app }} apps/${{ matrix.app }}/android/app/build/outputs/apk/release/app-release.apk
+      - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: android-${{ matrix.app }}
@@ -129,12 +127,11 @@ jobs:
           DEVICE=$(xcrun simctl list devices available -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next(x['udid'] for r,v in d.items() if 'iOS' in r for x in v if x['name'].startswith('iPhone')))")
           xcrun simctl boot "$DEVICE"
           xcrun simctl bootstatus "$DEVICE" -b
-          xcrun simctl install "$DEVICE" "apps/${{ matrix.app }}/ios/build/Build/Products/Release-iphonesimulator/${{ matrix.appName }}.app"
-          tools/ci/run-logged.sh maestro-ios maestro --device "$DEVICE" test .maestro/${{ matrix.app }} --format junit --output maestro-ios-${{ matrix.app }}.xml --test-output-dir maestro-ios-${{ matrix.app }}
+          tools/ci/device-e2e.sh ios ${{ matrix.app }} "apps/${{ matrix.app }}/ios/build/Build/Products/Release-iphonesimulator/${{ matrix.appName }}.app" "$DEVICE"
       - name: Package simulator app
         if: always()
         run: cd apps/${{ matrix.app }}/ios/build/Build/Products/Release-iphonesimulator 2>/dev/null && zip -qr $GITHUB_WORKSPACE/${{ matrix.app }}-ios-simulator.zip ${{ matrix.appName }}.app || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: ios-${{ matrix.app }}
