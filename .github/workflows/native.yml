@@ -18,7 +18,8 @@ env:
 
 jobs:
   android:
-    runs-on: ubuntu-latest
+    # Pinned: SDK downloads on the newer default image were arriving corrupt.
+    runs-on: ubuntu-24.04
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -44,6 +45,15 @@ jobs:
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: "17" }
       - run: pnpm install --frozen-lockfile
+      - name: Android SDK components (NDK, emulator image) with retries
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          for pkg in "ndk;27.1.12297006" "emulator" "platform-tools" "system-images;android-34;google_apis;x86_64"; do
+            for i in 1 2 3 4; do
+              tools/ci/run-logged.sh "sdk-$i" bash -c "yes | '$SDKM' --install '$pkg' > /dev/null" && break
+              echo "retry $pkg ($i)"; rm -rf "$HOME/.android/cache" "$ANDROID_HOME/.temp" || true; sleep 10
+            done
+          done
       - name: Prebuild native project
         working-directory: apps/${{ matrix.app }}
         run: ../../tools/ci/run-logged.sh prebuild-android npx expo prebuild --platform android --clean --no-install
@@ -67,6 +77,7 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
+          emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: tools/ci/device-e2e.sh android ${{ matrix.app }} apps/${{ matrix.app }}/android/app/build/outputs/apk/release/app-release.apk
       - uses: actions/upload-artifact@v5
@@ -79,7 +90,8 @@ jobs:
             ${{ runner.temp }}/api.log
 
   ios:
-    runs-on: macos-15
+    # Expo SDK 58 / React Native 0.88 need the Xcode 26 toolchain.
+    runs-on: macos-26
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -99,6 +111,13 @@ jobs:
         with: { node-version: 22.22.0, cache: pnpm }
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: "17" }
+      - name: Select newest Xcode
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -z "$X" ] && X=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$X/Contents/Developer"
+          echo "::notice title=Xcode::$(xcodebuild -version | tr '\n' ' ')"
+          xcrun simctl list runtimes | tail -5
       - name: PostgreSQL 16
         run: |
           brew install postgresql@16
