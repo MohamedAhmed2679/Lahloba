@@ -54,6 +54,23 @@ export function registerOrderRoutes(app: FastifyInstance, ctx: RouteContext) {
     return load();
   };
 
+  // Opportunistic sweep: on hosts where scheduled jobs are infrequent (e.g. Vercel Hobby allows one
+  // a day), order traffic itself expires holds and enforces deadlines, at most once a minute per
+  // instance. Runs before the request so the caller sees current state; failures never block it.
+  let lastSweep = 0;
+  app.addHook('onRequest', async (req) => {
+    if (!ctx.config.orders || ctx.config.payments.provider !== 'simulator') return;
+    if (!/^\/v1\/(orders|quotes|chef|supplier|courier)/.test(req.url)) return;
+    const now = Date.now();
+    if (now - lastSweep < 60_000) return;
+    lastSweep = now;
+    try {
+      await Promise.race([sweep(ctx.pool, deps(), `inline-sweep-${now}`), new Promise((r) => setTimeout(r, 4000))]);
+    } catch (e) {
+      req.log.warn({ err: (e as Error).message }, 'inline sweep failed');
+    }
+  });
+
   // ---------------- customer
   app.post('/v1/quotes', { config: { rateLimit: { max: 30 * (ctx.rateLimitScale ?? 1), timeWindow: '1 minute' } } }, async (req, reply) => {
     deps();

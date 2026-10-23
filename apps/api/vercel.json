@@ -5,5 +5,5 @@
   "outputDirectory": "public",
   "functions": { "api/index.mjs": { "maxDuration": 30 } },
   "rewrites": [{ "source": "/(.*)", "destination": "/api/index.mjs" }],
-  "crons": [{ "path": "/v1/internal/sweep", "schedule": "*/5 * * * *" }]
+  "crons": [{ "path": "/v1/internal/sweep", "schedule": "0 3 * * *" }]
 }
