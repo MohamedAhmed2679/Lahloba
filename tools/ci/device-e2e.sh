@@ -18,6 +18,22 @@ maestro "${args[@]}" > "$out/maestro.log" 2>&1
 status=$?
 tail -n 120 "$out/maestro.log"
 if [ $status -ne 0 ]; then
+  # What was on screen when it failed (visible texts and ids), for the annotation below.
+  maestro ${device:+--device "$device"} hierarchy > "$out/hierarchy.json" 2>/dev/null || true
+  python3 - "$out/hierarchy.json" > "$out/screen.txt" <<'PY2' || true
+import json, sys
+seen = []
+def walk(n):
+    a = n.get('attributes', {})
+    for k in ('text', 'accessibilityText', 'resource-id'):
+        v = a.get(k)
+        if v and v not in seen: seen.append(v)
+    for c in n.get('children', []) or []: walk(c)
+try: walk(json.load(open(sys.argv[1])))
+except Exception as e: seen.append(f'(no hierarchy: {e})')
+print(' | '.join(seen)[:4000])
+PY2
+  echo "::error title=Screen at failure (${platform}/${app})::$(cat "$out/screen.txt" | tr '\n' ' ' | sed 's/%/%25/g')"
   python3 - "${out}.xml" "$out/maestro.log" "$platform" "$app" <<'PY'
 import sys, xml.etree.ElementTree as ET, re
 xml, log, platform, app = sys.argv[1:5]
