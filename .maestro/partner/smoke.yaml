@@ -1,0 +1,38 @@
+# Partner app smoke test: dev-stub sign-in (CI only), role switch, chef menu.
+appId: com.lahloba.partner
+name: Partner — sign in, switch to chef role, see menu
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "auth-identifier"
+    timeout: 90000
+- takeScreenshot: partner-01-sign-in
+- tapOn:
+    id: "auth-identifier"
+- inputText: "sample-chef-a"
+- hideKeyboard
+- tapOn:
+    id: "auth-send"
+- extendedWaitUntil:
+    visible:
+      id: "auth-code"
+    timeout: 15000
+- tapOn:
+    id: "auth-code"
+- inputText: "123456"
+- hideKeyboard
+- tapOn:
+    id: "auth-verify"
+- extendedWaitUntil:
+    visible:
+      id: "switch-CHEF"
+    timeout: 30000
+- takeScreenshot: partner-02-roles
+- tapOn:
+    id: "switch-CHEF"
+- extendedWaitUntil:
+    visible: "Molokhia with chicken"
+    timeout: 30000
+- takeScreenshot: partner-03-chef-menu

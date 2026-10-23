@@ -1,19 +1,27 @@
-import { NestFactory } from '@nestjs/core';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { ValidationPipe, Logger } from '@nestjs/common';
-import { AppModule } from './app.module';
+import { describeConfig, loadServerConfig } from '@lahloba/config';
+import { buildApp } from './app';
+import { createPool } from './db';
+import { createIdentityProvider } from './identity/provider';
+import { createEvidenceStorage } from './storage/evidence';
 
-async function bootstrap() {
-  const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
-  app.enableCors({ origin: process.env.CORS_ORIGINS?.split(',') ?? ['http://localhost:3002'], credentials: true });
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
-  app.setGlobalPrefix('v1');
-  const doc = new DocumentBuilder().setTitle('Lahloba API').setVersion('1.0').addBearerAuth().build();
-  SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, doc));
-  const port = process.env.API_PORT || 3000;
-  await app.listen(port, '0.0.0.0');
-  logger.log('API on http://localhost:' + port + ' | Docs: /docs');
-}
-bootstrap();
+const config = loadServerConfig();
+const pool = createPool(config.databaseUrl);
+const app = await buildApp({
+  config,
+  pool,
+  identity: createIdentityProvider(config),
+  evidence: createEvidenceStorage(config.evidenceStorage),
+  logger: true,
+});
+app.log.info({ config: describeConfig(config) }, 'starting Lahloba API');
+if (config.identity.kind === 'dev-stub') app.log.warn('DEVELOPMENT IDENTITY STUB ENABLED — never expose this server publicly');
+
+const shutdown = async () => {
+  await app.close();
+  await pool.end();
+  process.exit(0);
+};
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+
+await app.listen({ host: config.apiHost, port: config.apiPort });

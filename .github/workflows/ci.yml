@@ -1,50 +1,27 @@
-name: CI
-on:
-  push: { branches: [main, develop] }
-  pull_request: { branches: [main] }
-env:
-  NODE_VERSION: '20'
-  FLUTTER_VERSION: '3.22.0'
+# CI definition for Slice 1. NOTE: authored and validated locally only; it has not yet been run on GitHub.
+name: ci
+on: [push, pull_request]
 jobs:
-  api-test:
+  checks:
     runs-on: ubuntu-latest
     services:
-      postgres: { image: 'postgres:16-alpine', env: { POSTGRES_DB: lahloba_test, POSTGRES_USER: lahloba, POSTGRES_PASSWORD: test }, ports: ['5432:5432'] }
-      redis: { image: 'redis:7-alpine', ports: ['6379:6379'] }
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_ADMIN_URL: postgres://postgres:ci-only-password@127.0.0.1:5432/postgres
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
       - uses: actions/setup-node@v4
-        with: { node-version: '${{ env.NODE_VERSION }}' }
-      - run: cd apps/api && npm install
-      - run: cd apps/api && npm run lint
-      - run: cd apps/api && npm test
-        env: { DATABASE_URL: 'postgresql://lahloba:test@localhost:5432/lahloba_test', REDIS_URL: 'redis://localhost:6379', JWT_SECRET: 'test-secret-32chars-minimum!!' }
-  flutter-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with: { flutter-version: '${{ env.FLUTTER_VERSION }}' }
-      - run: cd apps/mobile && flutter pub get
-      - run: cd apps/mobile && flutter analyze
-      - run: cd apps/mobile && flutter test
-  flutter-build-android:
-    needs: flutter-test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with: { flutter-version: '${{ env.FLUTTER_VERSION }}' }
-      - run: cd apps/mobile && flutter build apk --release
-      - uses: actions/upload-artifact@v4
-        with: { name: android-apk, path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk }
-  flutter-build-ios:
-    needs: flutter-test
-    runs-on: macos-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with: { flutter-version: '${{ env.FLUTTER_VERSION }}' }
-      - run: cd apps/mobile && flutter build ios --release --no-codesign
+        with: { node-version: 22.22.0, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build:web
+        env: { CI: "1", EXPO_NO_TELEMETRY: "1" }

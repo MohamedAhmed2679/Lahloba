@@ -1,0 +1,28 @@
+{
+  "name": "lahloba-app",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Lahloba marketplace monorepo \u2014 Slice 1 foundation (identity, roles, catalog). Not production-ready.",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r --parallel run typecheck",
+    "test": "pnpm -r --workspace-concurrency=1 run test",
+    "db:migrate": "pnpm --filter @lahloba/api run db:migrate",
+    "db:rollback": "pnpm --filter @lahloba/api run db:rollback",
+    "db:seed:dev": "pnpm --filter @lahloba/api run db:seed:dev",
+    "dev:api": "pnpm --filter @lahloba/api run dev",
+    "dev:worker": "pnpm --filter @lahloba/worker run dev",
+    "dev:customer": "pnpm --filter @lahloba/customer run web",
+    "dev:partner": "pnpm --filter @lahloba/partner run web",
+    "dev:operations": "pnpm --filter @lahloba/operations run dev",
+    "build:web": "pnpm --filter @lahloba/customer run export:web && pnpm --filter @lahloba/partner run export:web && pnpm --filter @lahloba/operations run build"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

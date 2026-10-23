@@ -1,0 +1,142 @@
+# Native Android + iOS builds of both apps, installed on an emulator/simulator and exercised with
+# Maestro against a real API + PostgreSQL started on the runner (dev identity stub, CI only).
+name: native
+on:
+  push:
+    branches: [feature/expo-platform, main]
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "1"
+  EXPO_NO_TELEMETRY: "1"
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [customer, partner]
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: ci-only-password }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:ci-only-password@127.0.0.1:5432/postgres
+      EXPO_PUBLIC_API_URL: http://10.0.2.2:4000
+      EXPO_PUBLIC_DEV_IDENTITY_STUB: "true"
+      LAHLOBA_ALLOW_CLEARTEXT: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.22.0, cache: pnpm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - run: pnpm install --frozen-lockfile
+      - name: Prebuild native project
+        working-directory: apps/${{ matrix.app }}
+        run: npx expo prebuild --platform android --clean --no-install
+      - name: Build release APK (debug-signed, x86_64 for the emulator)
+        working-directory: apps/${{ matrix.app }}/android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+      - name: Start API with seeded database
+        run: tools/ci/start-api.sh
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Run on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb install -r apps/${{ matrix.app }}/android/app/build/outputs/apk/release/app-release.apk
+            maestro test .maestro/${{ matrix.app }} --format junit --output maestro-android-${{ matrix.app }}.xml --test-output-dir maestro-android-${{ matrix.app }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-${{ matrix.app }}
+          path: |
+            apps/${{ matrix.app }}/android/app/build/outputs/apk/release/app-release.apk
+            maestro-android-${{ matrix.app }}*
+            ${{ runner.temp }}/api.log
+
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { app: customer, scheme: Lahloba, appName: Lahloba }
+          - { app: partner, scheme: LahlobaPartner, appName: LahlobaPartner }
+    env:
+      DATABASE_URL: postgres://runner@127.0.0.1:5432/postgres
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:4000
+      EXPO_PUBLIC_DEV_IDENTITY_STUB: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.22.0, cache: pnpm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - name: PostgreSQL 16
+        run: |
+          brew install postgresql@16
+          brew services start postgresql@16
+          for i in $(seq 1 30); do /opt/homebrew/opt/postgresql@16/bin/pg_isready -h 127.0.0.1 && break; sleep 2; done
+          /opt/homebrew/opt/postgresql@16/bin/createuser -h 127.0.0.1 -s runner 2>/dev/null || true
+      - run: pnpm install --frozen-lockfile
+      - name: Prebuild native project (runs CocoaPods)
+        working-directory: apps/${{ matrix.app }}
+        run: npx expo prebuild --platform ios --clean
+      - name: Build for iOS Simulator (Release, unsigned)
+        working-directory: apps/${{ matrix.app }}/ios
+        run: |
+          set -o pipefail
+          xcodebuild -workspace ${{ matrix.scheme }}.xcworkspace -scheme ${{ matrix.scheme }} -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO | tail -n 200
+      - name: Start API with seeded database
+        run: tools/ci/start-api.sh
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Boot simulator, install, test
+        run: |
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next(x['udid'] for r,v in d.items() if 'iOS' in r for x in v if x['name'].startswith('iPhone')))")
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" "apps/${{ matrix.app }}/ios/build/Build/Products/Release-iphonesimulator/${{ matrix.appName }}.app"
+          maestro --device "$DEVICE" test .maestro/${{ matrix.app }} --format junit --output maestro-ios-${{ matrix.app }}.xml --test-output-dir maestro-ios-${{ matrix.app }}
+      - name: Package simulator app
+        if: always()
+        run: cd apps/${{ matrix.app }}/ios/build/Build/Products/Release-iphonesimulator 2>/dev/null && zip -qr $GITHUB_WORKSPACE/${{ matrix.app }}-ios-simulator.zip ${{ matrix.appName }}.app || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-${{ matrix.app }}
+          path: |
+            ${{ matrix.app }}-ios-simulator.zip
+            maestro-ios-${{ matrix.app }}*
+            ${{ runner.temp }}/api.log
