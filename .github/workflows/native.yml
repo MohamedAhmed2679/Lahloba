@@ -35,20 +35,20 @@ jobs:
       EXPO_PUBLIC_DEV_IDENTITY_STUB: "true"
       LAHLOBA_ALLOW_CLEARTEXT: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with: { node-version: 22.22.0, cache: pnpm }
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: "17" }
       - run: pnpm install --frozen-lockfile
       - name: Prebuild native project
         working-directory: apps/${{ matrix.app }}
-        run: npx expo prebuild --platform android --clean --no-install
+        run: ../../tools/ci/run-logged.sh prebuild-android npx expo prebuild --platform android --clean --no-install
       - name: Build release APK (debug-signed, x86_64 for the emulator)
         working-directory: apps/${{ matrix.app }}/android
-        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+        run: ../../../tools/ci/run-logged.sh gradle ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
       - name: Start API with seeded database
         run: tools/ci/start-api.sh
       - name: Install Maestro
@@ -69,7 +69,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             adb install -r apps/${{ matrix.app }}/android/app/build/outputs/apk/release/app-release.apk
-            maestro test .maestro/${{ matrix.app }} --format junit --output maestro-android-${{ matrix.app }}.xml --test-output-dir maestro-android-${{ matrix.app }}
+            tools/ci/run-logged.sh maestro-android maestro test .maestro/${{ matrix.app }} --format junit --output maestro-android-${{ matrix.app }}.xml --test-output-dir maestro-android-${{ matrix.app }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -93,12 +93,12 @@ jobs:
       EXPO_PUBLIC_API_URL: http://127.0.0.1:4000
       EXPO_PUBLIC_DEV_IDENTITY_STUB: "true"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with: { node-version: 22.22.0, cache: pnpm }
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: "17" }
       - name: PostgreSQL 16
         run: |
@@ -109,14 +109,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Prebuild native project (runs CocoaPods)
         working-directory: apps/${{ matrix.app }}
-        run: npx expo prebuild --platform ios --clean
+        run: ../../tools/ci/run-logged.sh prebuild-ios npx expo prebuild --platform ios --clean
       - name: Build for iOS Simulator (Release, unsigned)
         working-directory: apps/${{ matrix.app }}/ios
         run: |
-          set -o pipefail
-          xcodebuild -workspace ${{ matrix.scheme }}.xcworkspace -scheme ${{ matrix.scheme }} -configuration Release \
+          ls
+          ../../../tools/ci/run-logged.sh xcodebuild xcodebuild -workspace ${{ matrix.scheme }}.xcworkspace -scheme ${{ matrix.scheme }} -configuration Release \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO | tail -n 200
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO
       - name: Start API with seeded database
         run: tools/ci/start-api.sh
       - name: Install Maestro
@@ -129,7 +129,7 @@ jobs:
           xcrun simctl boot "$DEVICE"
           xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install "$DEVICE" "apps/${{ matrix.app }}/ios/build/Build/Products/Release-iphonesimulator/${{ matrix.appName }}.app"
-          maestro --device "$DEVICE" test .maestro/${{ matrix.app }} --format junit --output maestro-ios-${{ matrix.app }}.xml --test-output-dir maestro-ios-${{ matrix.app }}
+          tools/ci/run-logged.sh maestro-ios maestro --device "$DEVICE" test .maestro/${{ matrix.app }} --format junit --output maestro-ios-${{ matrix.app }}.xml --test-output-dir maestro-ios-${{ matrix.app }}
       - name: Package simulator app
         if: always()
         run: cd apps/${{ matrix.app }}/ios/build/Build/Products/Release-iphonesimulator 2>/dev/null && zip -qr $GITHUB_WORKSPACE/${{ matrix.app }}-ios-simulator.zip ${{ matrix.appName }}.app || true

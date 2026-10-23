@@ -20,10 +20,10 @@ jobs:
     env:
       TEST_DATABASE_ADMIN_URL: postgres://postgres:ci-only-password@127.0.0.1:5432/postgres
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with: { node-version: 22.22.0, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck

@@ -22,12 +22,12 @@ jobs:
         id: gate
         run: |
           if [ -z "$EXPO_TOKEN" ]; then echo "EXPO_TOKEN secret not set; skipping EAS builds."; echo "run=false" >> "$GITHUB_OUTPUT"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: steps.gate.outputs.run == 'true'
       - uses: pnpm/action-setup@v4
         if: steps.gate.outputs.run == 'true'
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: steps.gate.outputs.run == 'true'
         with: { node-version: 22.22.0, cache: pnpm }
       - if: steps.gate.outputs.run == 'true'
