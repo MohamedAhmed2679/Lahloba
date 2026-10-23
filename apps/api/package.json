@@ -19,7 +19,7 @@
     "db:status": "tsx src/cli/migrate.ts status",
     "db:seed:dev": "tsx src/cli/seedDev.ts",
     "ops:grant:dev": "tsx src/cli/grantOpsDev.ts",
-    "build:vercel": "esbuild src/vercel.ts --bundle --platform=node --format=esm --target=node22 --outfile=api/index.mjs --external:pg-native --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
+    "build:vercel": "esbuild src/vercel.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/handler.mjs --external:pg-native --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
     "db:seed:staging": "tsx src/cli/seedStaging.ts",
     "ops:grant": "tsx src/cli/grantOps.ts"
   },
