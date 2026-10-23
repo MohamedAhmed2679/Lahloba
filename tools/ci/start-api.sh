@@ -12,6 +12,7 @@ export EVIDENCE_STORAGE=local-disk STORAGE_LOCAL_DIR="${RUNNER_TEMP:-/tmp}/lahlo
 export STORAGE_SIGNING_SECRET="ci-only-storage-secret-$(date +%s)-padding-padding"
 # Sandbox payment simulator: no real money; refused in production.
 export PAYMENTS_PROVIDER=simulator PAYMENTS_SIMULATOR_SECRET="ci-only-payments-secret-$(date +%s)-padding"
+export HANDOFF_CODE_SECRET="ci-only-handoff-secret-$(date +%s)-padding-padding"
 pnpm db:migrate
 pnpm db:seed:dev
 nohup pnpm --filter @lahloba/api run start > "${RUNNER_TEMP:-/tmp}/api.log" 2>&1 &

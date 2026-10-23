@@ -368,3 +368,15 @@ export const SupplierBranchList = z.object({
 
 export const DevTokenRequest = z.object({ subject: z.string().trim().regex(/^[a-z0-9._-]{3,64}$/), displayName: z.string().trim().min(1).max(80).optional() }).strict();
 export const DevTokenResponse = z.object({ token: z.string(), expiresInSeconds: z.number().int(), warning: z.string() });
+
+// ---------- Kitchen capacity (H04) ----------
+export const CreateCapacitySlotRequest = z.object({
+  startsAt: z.string().datetime({ offset: true }),
+  endsAt: z.string().datetime({ offset: true }),
+  totalWorkUnits: z.number().int().min(1).max(10000),
+}).strict();
+export const CapacitySlotDto = z.object({
+  id: Uuid, startsAt: z.string(), endsAt: z.string(), totalWorkUnits: z.number().int(), reservedWorkUnits: z.number().int(),
+  status: z.enum(['ACTIVE', 'CANCELLED']), version: z.number().int(),
+});
+export const CapacitySlotList = z.object({ items: z.array(CapacitySlotDto) });

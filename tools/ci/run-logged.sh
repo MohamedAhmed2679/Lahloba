@@ -10,7 +10,10 @@ status=$?
 tail -n 150 "$log"
 if [ $status -ne 0 ]; then
   enc() { python3 -c 'import sys;d=sys.stdin.read()[-60000:];print(d.replace("%","%25").replace("\r","").replace("\n","%0A"))'; }
-  errs=$(grep -nE "(error|Error|ERROR|FAILED|Failed|failed|❌|Exception|What went wrong|Unable to|not found|Cannot find)" "$log" | grep -vE "warning:|deprecated" | head -n 80)
+  # Real error lines only (compiler/linker/script errors, Gradle "What went wrong", test failures);
+  # long command lines are cut so the annotation stays readable.
+  errs=$( { grep -nE "(^|[: ])(error|fatal error):|xcodebuild: error|BUILD FAILED|The following build commands failed|^[[:space:]]+(CompileC|SwiftCompile|SwiftEmitModule|PhaseScriptExecution|Ld|CompileSwiftSources|GenerateDSYMFile) |What went wrong|^> |FAILURE:|Execution failed|❌|FAILED|Error: |Exception" "$log" || true; } \
+    | grep -vE "warning:|-Werror|-Wno-error" | cut -c1-400 | head -n 120)
   [ -n "$errs" ] && echo "::error title=${label} (matched errors)::$(printf '%s' "$errs" | enc)"
   echo "::error title=${label} (last 60 lines)::$(tail -n 60 "$log" | enc)"
   { echo "### ${label} failed"; echo '```'; tail -n 80 "$log"; echo '```'; } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"

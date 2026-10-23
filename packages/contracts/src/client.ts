@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import * as O from './orders';
 import * as S from './schemas';
 
 export class ApiError extends Error {
@@ -161,6 +162,44 @@ export function createApiClient(opts: ApiClientOptions) {
     chefDishes: (chefId: string) => request(S.ChefDishList, 'GET', `/v1/chef/${chefId}/dishes`),
     createDish: (chefId: string, body: z.input<typeof S.CreateDishRequest>, key?: string) =>
       request(S.ChefDishDto, 'POST', `/v1/chef/${chefId}/dishes`, body, key),
+
+    // Customer orders (sandbox payments)
+    quote: (body: z.input<typeof O.QuoteRequest>, key?: string) => request(O.QuoteDto, 'POST', '/v1/quotes', body, key),
+    createOrder: (quoteId: string, key?: string) => request(O.OrderDto, 'POST', '/v1/orders', { quoteId }, key),
+    orders: () => request(O.OrderList, 'GET', '/v1/orders'),
+    order: (id: string) => request(O.OrderDto, 'GET', `/v1/orders/${id}`),
+    cancelOrder: (id: string, body: z.input<typeof O.CancelOrderRequest>, key?: string) => request(O.OrderDto, 'POST', `/v1/orders/${id}/cancel`, body, key),
+    startPayment: (orderId: string, key?: string) => request(O.PaymentSessionDto, 'POST', `/v1/orders/${orderId}/payments`, {}, key),
+    /** SANDBOX ONLY: stands in for the payment provider's hosted page. No real money moves. */
+    simulatePayment: (sessionId: string, body: z.input<typeof O.SimulatorCompleteRequest>, key?: string) =>
+      request(O.PaymentSessionDto, 'POST', `/v1/sandbox/payments/${encodeURIComponent(sessionId)}/complete`, body, key),
+
+    // Chef orders
+    chefOrders: (chefId: string) => request(O.ChefOrderList, 'GET', `/v1/chef/${chefId}/orders`),
+    chefRespond: (chefId: string, orderId: string, body: z.input<typeof O.ChefRespondRequest>, key?: string) =>
+      request(O.ChefOrderDto, 'POST', `/v1/chef/${chefId}/orders/${orderId}/respond`, body, key),
+    chefCheckIngredients: (chefId: string, orderId: string, body: z.input<typeof O.ChefIngredientCheckRequest>, key?: string) =>
+      request(O.ChefOrderDto, 'POST', `/v1/chef/${chefId}/orders/${orderId}/ingredients`, body, key),
+    chefStartPreparation: (chefId: string, orderId: string, expectedVersion: number, key?: string) =>
+      request(O.ChefOrderDto, 'POST', `/v1/chef/${chefId}/orders/${orderId}/start`, { expectedVersion }, key),
+    chefMarkReady: (chefId: string, orderId: string, expectedVersion: number, key?: string) =>
+      request(O.ChefOrderDto, 'POST', `/v1/chef/${chefId}/orders/${orderId}/ready`, { expectedVersion }, key),
+    chefSlots: (chefId: string) => request(S.CapacitySlotList, 'GET', `/v1/chef/${chefId}/capacity-slots`),
+    createChefSlot: (chefId: string, body: z.input<typeof S.CreateCapacitySlotRequest>, key?: string) =>
+      request(S.CapacitySlotDto, 'POST', `/v1/chef/${chefId}/capacity-slots`, body, key),
+
+    // Supplier sub-orders
+    branchSuborders: (branchId: string) => request(O.SupplierSuborderList, 'GET', `/v1/supplier/branches/${branchId}/suborders`),
+    supplierRespond: (branchId: string, suborderId: string, body: z.input<typeof O.SupplierRespondRequest>, key?: string) =>
+      request(O.SupplierSuborderDto, 'POST', `/v1/supplier/branches/${branchId}/suborders/${suborderId}/respond`, body, key),
+
+    // Courier
+    courierJobs: () => request(O.CourierLegList, 'GET', '/v1/courier/jobs'),
+    claimLeg: (legId: string, expectedVersion: number, key?: string) => request(O.CourierLegDto, 'POST', `/v1/courier/legs/${legId}/claim`, { expectedVersion }, key),
+    collectStop: (legId: string, stopId: string, body: z.input<typeof O.CourierCodeRequest>, key?: string) =>
+      request(O.CourierLegDto, 'POST', `/v1/courier/legs/${legId}/stops/${stopId}/collect`, body, key),
+    deliverLeg: (legId: string, body: z.input<typeof O.CourierCodeRequest>, key?: string) =>
+      request(O.CourierLegDto, 'POST', `/v1/courier/legs/${legId}/deliver`, body, key),
 
     // Supplier
     myBranches: () => request(S.SupplierBranchList, 'GET', '/v1/supplier/branches'),

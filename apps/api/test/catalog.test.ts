@@ -145,12 +145,14 @@ describe.skipIf(!TEST_DB_ADMIN_URL)('public catalog (C01-C05)', () => {
   it('C02/C19 groundwork: groceries show supplier categories first, hide out-of-stock products', async () => {
     const cats = await call(ctx, 'GET', `/v1/groceries/categories?area=${area.maadi}`);
     const counts = Object.fromEntries(cats.body.items.map((c: any) => [c.slug, c.productCount]));
-    expect(counts).toMatchObject({ butcher: 1, pantry: 1, produce: 1, bakery: 1, grocery: 1, dairy: 0 });
+    // Two illustrative shops serve Maadi; the out-of-stock lentils are not counted.
+    expect(counts).toMatchObject({ butcher: 2, pantry: 2, produce: 2, bakery: 1, grocery: 2, dairy: 0 });
     const butcher = await call(ctx, 'GET', `/v1/groceries/products?area=${area.maadi}&category=butcher`);
-    expect(butcher.body.items[0]).toMatchObject({ packQuantity: 500, packUnit: 'g', pricePiastres: 9000, variableWeight: true });
+    expect(butcher.body.items).toEqual(expect.arrayContaining([expect.objectContaining({ packQuantity: 500, packUnit: 'g', pricePiastres: 9000, variableWeight: true })]));
     expect(butcher.raw).not.toContain('PRIVATE');
     const heliopolis = await call(ctx, 'GET', `/v1/groceries/categories?area=${area.heliopolis}`);
-    expect(heliopolis.body.items.every((c: any) => c.productCount === 0)).toBe(true);
+    // Only the Nasr City shop delivers to Heliopolis.
+    expect(Object.fromEntries(heliopolis.body.items.map((c: any) => [c.slug, c.productCount]))).toMatchObject({ butcher: 1, bakery: 0, produce: 0 });
     const zamalek = await call(ctx, 'GET', `/v1/groceries/products?area=${area.zamalek}&category=butcher`);
     expect(zamalek.body.serviceability).toBe('UNSUPPORTED_AREA');
   });

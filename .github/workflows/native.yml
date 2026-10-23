@@ -9,7 +9,8 @@ on:
   workflow_dispatch:
 concurrency:
   group: native-${{ github.ref }}
-  cancel-in-progress: true
+  # Queue instead of cancelling so long emulator runs finish and report.
+  cancel-in-progress: false
 
 env:
   CI: "1"

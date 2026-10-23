@@ -33,6 +33,8 @@ const RawConfig = z.object({
   PAYMENTS_PROVIDER: z.enum(['disabled', 'simulator']).default('disabled'),
   PAYMENTS_SIMULATOR_SECRET: z.string().optional(),
   PUBLIC_API_URL: z.string().optional(),
+  HANDOFF_CODE_SECRET: z.string().optional(),
+  CRON_SECRET: z.string().optional(),
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().min(100).default(2000),
   WORKER_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(50).default(8),
 });
@@ -51,6 +53,9 @@ export interface ServerConfig {
   storage: { localDir: string | null; signingSecret: string | null };
   payments: { provider: 'disabled' } | { provider: 'simulator'; webhookSecret: string };
   publicApiUrl: string | null;
+  /** Ordering needs payments plus a secret for deriving handoff codes (never stored in plaintext). */
+  orders: { handoffSecret: string } | null;
+  cronSecret: string | null;
   worker: { pollIntervalMs: number; maxAttempts: number };
 }
 
@@ -134,6 +139,12 @@ export function loadServerConfig(source: Record<string, string | undefined> = pr
     if ((raw.PAYMENTS_SIMULATOR_SECRET ?? '').length < 32) throw new ConfigError('PAYMENTS_SIMULATOR_SECRET (32+ characters) is required for the payment simulator.');
     payments = { provider: 'simulator', webhookSecret: raw.PAYMENTS_SIMULATOR_SECRET! };
   }
+  let orders: ServerConfig['orders'] = null;
+  if (payments.provider !== 'disabled') {
+    if ((raw.HANDOFF_CODE_SECRET ?? '').length < 32) throw new ConfigError('HANDOFF_CODE_SECRET (32+ characters) is required when ordering is enabled.');
+    orders = { handoffSecret: raw.HANDOFF_CODE_SECRET! };
+  }
+  if (raw.CRON_SECRET !== undefined && raw.CRON_SECRET.length < 16) throw new ConfigError('CRON_SECRET must be 16+ characters.');
   if (!isLocalEnv(env) && raw.CORS_ORIGINS.some((o) => o === '*')) {
     throw new ConfigError('Wildcard CORS origin is forbidden outside development/test.');
   }
@@ -149,6 +160,8 @@ export function loadServerConfig(source: Record<string, string | undefined> = pr
     storage: { localDir: raw.STORAGE_LOCAL_DIR ?? null, signingSecret: fileStorage ? raw.STORAGE_SIGNING_SECRET! : null },
     payments,
     publicApiUrl: raw.PUBLIC_API_URL ?? null,
+    orders,
+    cronSecret: raw.CRON_SECRET ?? null,
     worker: { pollIntervalMs: raw.WORKER_POLL_INTERVAL_MS, maxAttempts: raw.WORKER_MAX_ATTEMPTS },
   };
 }

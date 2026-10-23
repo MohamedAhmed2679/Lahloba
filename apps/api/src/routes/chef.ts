@@ -201,12 +201,8 @@ export function registerChefRoutes(app: FastifyInstance, ctx: RouteContext) {
   });
 
   // H04: capacity slots in work units. Overlaps are refused by the database (exclusion constraint).
-  const SlotBody = z.object({
-    startsAt: z.string().datetime({ offset: true }),
-    endsAt: z.string().datetime({ offset: true }),
-    totalWorkUnits: z.number().int().min(1).max(10000),
-  }).strict();
-  const slotDto = (r: Record<string, any>) => ({
+  const SlotBody = C.CreateCapacitySlotRequest;
+  const slotDto = (r: Record<string, any>) => C.CapacitySlotDto.parse({
     id: r.id, startsAt: new Date(r.starts_at).toISOString(), endsAt: new Date(r.ends_at).toISOString(),
     totalWorkUnits: r.total_work_units, reservedWorkUnits: r.reserved_work_units, status: r.status, version: r.version,
   });

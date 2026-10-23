@@ -50,6 +50,8 @@ export async function createTestContext(opts: { seed?: boolean; evidence?: Serve
     identity: { kind: 'dev-stub', signingSecret: secret }, evidenceStorage: opts.evidence ?? 'local-disk',
     storage: { localDir: join(tmpdir(), `lahloba-evidence-${db.name}`), signingSecret: 'test-storage-secret-'.padEnd(40, 'y') },
     payments: { provider: 'simulator', webhookSecret: 'test-payments-secret-'.padEnd(40, 'z') },
+    orders: { handoffSecret: 'test-handoff-secret-'.padEnd(40, 'h') },
+    cronSecret: 'test-cron-secret-0123456789',
     publicApiUrl: null,
     worker: { pollIntervalMs: 100, maxAttempts: 3 },
   };

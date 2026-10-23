@@ -13,6 +13,7 @@ import { registerDevRoutes } from './routes/dev';
 import { registerEvidenceRoutes } from './routes/evidence';
 import { registerMeRoutes } from './routes/me';
 import { registerOpsRoutes } from './routes/ops';
+import { registerOrderRoutes } from './routes/orders';
 import { registerPartnerRoutes } from './routes/partners';
 import { registerPublicRoutes } from './routes/public';
 import { registerSupplierRoutes } from './routes/supplier';
@@ -99,6 +100,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(async (s) => registerChefRoutes(s, ctx));
   await app.register(async (s) => registerSupplierRoutes(s, ctx));
   await app.register(async (s) => registerEvidenceRoutes(s, ctx));
+  await app.register(async (s) => registerOrderRoutes(s, ctx));
   if (deps.identity.kind === 'dev-stub' && (deps.config.env === 'development' || deps.config.env === 'test')) {
     await app.register(async (s) => registerDevRoutes(s, ctx));
   }

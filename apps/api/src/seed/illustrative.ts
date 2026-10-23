@@ -15,6 +15,8 @@ export const SAMPLE_SUBJECTS = {
   chefB: 'dev:sample-chef-b',
   supplier: 'dev:sample-supplier',
   opsReviewer: 'dev:sample-ops-reviewer',
+  supplier2: 'dev:sample-supplier-2',
+  courier: 'dev:sample-courier',
 } as const;
 
 async function user(db: DbClient, subject: string, name: string) {
@@ -193,8 +195,37 @@ export async function seedIllustrative(db: DbClient) {
   await product('tomato', 'tomato', 'SAMPLE-TOMATO-1KG', 1000, 2500, 'produce', 30, true);
   await product('lentils', 'lentils-red', 'SAMPLE-LENTIL-500', 500, 4000, 'pantry', 0); // out of stock: hidden
   await product('bread', 'baladi-bread', 'SAMPLE-BREAD-5', 5, 500, 'bakery', 50);
+  await product('garlic', 'garlic', 'SAMPLE-GARLIC-100', 100, 1200, 'produce', 25);
 
-  return { ...ref, users: { system, ops, supplierOwner: supOwner, chefAOwner: chefs['A:owner']!, chefBOwner: chefs['B:owner']! }, chefs, dishes, offers, branchId, organizationId: org.rows[0].id as string, products };
+  // Second illustrative shop (Nasr City) so customers can compare baskets across shops.
+  const sup2Owner = await user(db, SAMPLE_SUBJECTS.supplier2, 'Sample Corner Market (sample)');
+  const org2 = await db.query(`INSERT INTO supplier_organizations (owner_user_id, public_name, status, is_illustrative) VALUES ($1, 'Sample Corner Market (sample)', 'APPROVED', true) RETURNING id`, [sup2Owner]);
+  await db.query(`INSERT INTO role_memberships (user_id, role, scope_type, scope_id, approval_state, granted_by) VALUES ($1, 'SUPPLIER_OWNER', 'SUPPLIER_ORG', $2, 'APPROVED', $3)`, [sup2Owner, org2.rows[0].id, system]);
+  const b2addr = await db.query(`INSERT INTO private_addresses (owner_user_id, address_text, area_id) VALUES ($1, 'PRIVATE sample market address', $2) RETURNING id`, [sup2Owner, area['nasr-city']]);
+  const branch2 = await db.query(
+    `INSERT INTO supplier_branches (organization_id, public_name, area_id, address_id, status, is_open, is_illustrative) VALUES ($1, 'Sample Corner Market — Nasr City (sample)', $2, $3, 'APPROVED', true, true) RETURNING id`,
+    [org2.rows[0].id, area['nasr-city'], b2addr.rows[0].id]);
+  const branch2Id = branch2.rows[0].id as string;
+  for (const s2 of ['nasr-city', 'maadi', 'heliopolis']) await db.query(`INSERT INTO supplier_branch_service_areas (branch_id, area_id) VALUES ($1, $2)`, [branch2Id, area[s2]]);
+  const product2 = async (key: string, slug: string, sku: string, pack: number, price: number, cat: string, packs: number, variable = false) => {
+    const unit = (await db.query(`SELECT canonical_unit FROM ingredients WHERE id = $1`, [ing[slug]])).rows[0].canonical_unit;
+    const p = await db.query(
+      `INSERT INTO supplier_products (branch_id, ingredient_id, sku, pack_quantity, pack_unit, price_piastres, variable_weight, category_facet_id, is_illustrative)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true) RETURNING id`,
+      [branch2Id, ing[slug], sku, pack, unit, price, variable, facet[`SUPPLIER_CATEGORY:${cat}`]]);
+    products[key] = p.rows[0].id;
+    await db.query(`INSERT INTO inventory_balances (product_id, on_hand_packs) VALUES ($1, $2)`, [p.rows[0].id, packs]);
+  };
+  await product2('chicken2', 'chicken-raw', 'CORNER-CHICKEN-1KG', 1000, 16500, 'butcher', 10, true);
+  await product2('molokhia2', 'molokhia-leaves', 'CORNER-MOLOKHIA-500', 500, 3800, 'grocery', 10);
+  await product2('rice2', 'rice-egyptian', 'CORNER-RICE-1KG', 1000, 5500, 'pantry', 20);
+
+  // Illustrative courier (approved, with the equipment both meal types need).
+  const courierUser = await user(db, SAMPLE_SUBJECTS.courier, 'Sample Courier Karim (sample)');
+  const cp = await db.query(`INSERT INTO courier_profiles (user_id, display_name, equipment, status, availability) VALUES ($1, 'Karim (sample)', ARRAY['INSULATED_BAG','COLD_BOX','MOTORCYCLE'], 'APPROVED', 'AVAILABLE') RETURNING id`, [courierUser]);
+  await db.query(`INSERT INTO role_memberships (user_id, role, scope_type, scope_id, approval_state, granted_by) VALUES ($1, 'COURIER', 'COURIER', $2, 'APPROVED', $3)`, [courierUser, cp.rows[0].id, system]);
+
+  return { ...ref, users: { system, ops, supplierOwner: supOwner, supplier2Owner: sup2Owner, courier: courierUser, chefAOwner: chefs['A:owner']!, chefBOwner: chefs['B:owner']! }, chefs, dishes, offers, branchId, branch2Id, courierId: cp.rows[0].id as string, organizationId: org.rows[0].id as string, products };
 }
 
 export type SeedResult = Awaited<ReturnType<typeof seedIllustrative>>;

@@ -75,6 +75,7 @@ describe('server configuration separation', () => {
     const prod = { ...base, LAHLOBA_ENV: 'production', IDENTITY_PROVIDER: 'oidc', OIDC_ISSUER: 'https://id.example', OIDC_AUDIENCE: 'a', OIDC_JWKS_URL: 'https://id.example/jwks' };
     expect(() => loadServerConfig({ ...prod, EVIDENCE_STORAGE: 'local-disk', STORAGE_SIGNING_SECRET: 's'.repeat(32) })).toThrow(/forbidden/);
     expect(() => loadServerConfig({ ...prod, PAYMENTS_PROVIDER: 'simulator', PAYMENTS_SIMULATOR_SECRET: 'p'.repeat(32) })).toThrow(/forbidden in production/);
-    expect(loadServerConfig({ ...prod, LAHLOBA_ENV: 'staging', PAYMENTS_PROVIDER: 'simulator', PAYMENTS_SIMULATOR_SECRET: 'p'.repeat(32) }).payments.provider).toBe('simulator');
+    expect(() => loadServerConfig({ ...prod, LAHLOBA_ENV: 'staging', PAYMENTS_PROVIDER: 'simulator', PAYMENTS_SIMULATOR_SECRET: 'p'.repeat(32) })).toThrow(/HANDOFF_CODE_SECRET/);
+    expect(loadServerConfig({ ...prod, LAHLOBA_ENV: 'staging', PAYMENTS_PROVIDER: 'simulator', PAYMENTS_SIMULATOR_SECRET: 'p'.repeat(32), HANDOFF_CODE_SECRET: 'h'.repeat(32) }).orders).not.toBeNull();
   });
 });
