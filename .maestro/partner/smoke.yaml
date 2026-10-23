@@ -12,7 +12,8 @@ name: Partner — sign in, switch to chef role, orders, kitchen times, menu
 - tapOn:
     id: "auth-identifier"
 - inputText: "sample-chef-a"
-- hideKeyboard
+- tapOn:
+    id: "auth-title"
 - tapOn:
     id: "auth-send"
 - extendedWaitUntil:
@@ -22,7 +23,8 @@ name: Partner — sign in, switch to chef role, orders, kitchen times, menu
 - tapOn:
     id: "auth-code"
 - inputText: "123456"
-- hideKeyboard
+- tapOn:
+    id: "auth-title"
 - tapOn:
     id: "auth-verify"
 - extendedWaitUntil:

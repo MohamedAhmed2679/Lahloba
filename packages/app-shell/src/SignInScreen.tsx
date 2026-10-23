@@ -56,7 +56,7 @@ export function SignInScreen(props: { onSignedIn: () => void; header?: React.Rea
   return (
     <Screen testID="sign-in">
       {props.header ?? <BrandLockup height={40} />}
-      <Text variant="heading" role="header">{t('auth.title')}</Text>
+      <Text variant="heading" role="header" testID="auth-title">{t('auth.title')}</Text>
       <Text muted>{props.intro ?? t('auth.subtitle')}</Text>
       {auth.provider === 'dev-stub' ? <Notice tone="warning" testID="auth-dev-notice">{t('auth.devNotice')}</Notice> : null}
       {step === 'identify' ? (

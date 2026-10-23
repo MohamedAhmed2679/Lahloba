@@ -54,7 +54,8 @@ name: Customer — checkout and sandbox payment
 - tapOn:
     id: "auth-identifier"
 - inputText: "maestro-customer"
-- hideKeyboard
+- tapOn:
+    id: "auth-title"
 - tapOn:
     id: "auth-send"
 - extendedWaitUntil:
@@ -64,7 +65,8 @@ name: Customer — checkout and sandbox payment
 - tapOn:
     id: "auth-code"
 - inputText: "123456"
-- hideKeyboard
+- tapOn:
+    id: "auth-title"
 - tapOn:
     id: "auth-verify"
 - extendedWaitUntil:
@@ -74,7 +76,8 @@ name: Customer — checkout and sandbox payment
 - tapOn:
     id: "address-text"
 - inputText: "12 Road 9, Maadi"
-- hideKeyboard
+- tapOn:
+    id: "sandbox-banner"
 - scrollUntilVisible:
     element:
       id: "get-price"

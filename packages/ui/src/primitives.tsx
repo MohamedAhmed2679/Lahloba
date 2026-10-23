@@ -51,7 +51,7 @@ export function Screen(props: { children: ReactNode; scroll?: boolean; testID?: 
   const style: ViewStyle = { padding: space.lg, gap: space.lg, backgroundColor: colors.background, flexGrow: 1 };
   if (props.scroll === false) return <View style={[style, { flex: 1 }]} testID={props.testID}>{props.header}{props.children}</View>;
   return (
-    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ flexGrow: 1 }} testID={props.testID} keyboardShouldPersistTaps="handled">
+    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ flexGrow: 1 }} testID={props.testID} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
       {props.header}
       <View style={[style, { maxWidth: 960, width: '100%', alignSelf: 'center' }]}>{props.children}</View>
     </ScrollView>
