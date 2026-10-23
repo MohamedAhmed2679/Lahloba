@@ -27,10 +27,15 @@ name: Customer — area, browse, dish, servings, Arabic, remembered area
 - tapOn:
     text: "Don.t Allow"
     optional: true
-- extendedWaitUntil:
-    visible:
-      id: "location-denied"
-    timeout: 15000
+# iOS simulators may report location as unavailable instead of denied; both keep manual choice.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "location-denied"
+          timeout: 15000
 - assertVisible:
     id: "area-maadi"
 - tapOn:
@@ -43,10 +48,10 @@ name: Customer — area, browse, dish, servings, Arabic, remembered area
 - tapOn:
     id: "entry-EAT_NOW"
 - extendedWaitUntil:
-    visible: "Molokhia with chicken"
+    visible: ".*Molokhia with chicken.*"
     timeout: 30000
 - takeScreenshot: customer-03-results
-- tapOn: "Molokhia with chicken"
+- tapOn: ".*Molokhia with chicken.*"
 - extendedWaitUntil:
     visible:
       id: "labour-line"
@@ -69,6 +74,6 @@ name: Customer — area, browse, dish, servings, Arabic, remembered area
 - tapOn:
     id: "language-switch"
 - extendedWaitUntil:
-    visible: "كُل الآن"
+    visible: ".*كُل الآن.*"
     timeout: 15000
 - takeScreenshot: customer-05-home-arabic

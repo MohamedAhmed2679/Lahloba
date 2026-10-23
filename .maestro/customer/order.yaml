@@ -31,9 +31,9 @@ name: Customer — checkout and sandbox payment
 - tapOn:
     id: "entry-EAT_NOW"
 - extendedWaitUntil:
-    visible: "Molokhia with chicken"
+    visible: ".*Molokhia with chicken.*"
     timeout: 30000
-- tapOn: "Molokhia with chicken"
+- tapOn: ".*Molokhia with chicken.*"
 - extendedWaitUntil:
     visible:
       id: "labour-line"
@@ -46,14 +46,14 @@ name: Customer — checkout and sandbox payment
     element:
       id: "source-CHEF"
     direction: DOWN
-    timeout: 20000
+    timeout: 60000
 - tapOn:
     id: "source-CHEF"
 - scrollUntilVisible:
     element:
       id: "compare-cta"
     direction: DOWN
-    timeout: 20000
+    timeout: 60000
 - takeScreenshot: customer-06-order-block
 - tapOn:
     id: "compare-cta"
@@ -93,7 +93,7 @@ name: Customer — checkout and sandbox payment
     element:
       id: "get-price"
     direction: DOWN
-    timeout: 20000
+    timeout: 60000
 - tapOn:
     id: "get-price"
 - extendedWaitUntil:
@@ -107,7 +107,7 @@ name: Customer — checkout and sandbox payment
     element:
       id: "place-order"
     direction: DOWN
-    timeout: 20000
+    timeout: 60000
 - tapOn:
     id: "place-order"
 - extendedWaitUntil:

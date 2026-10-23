@@ -81,17 +81,6 @@ export function OfferDetailScreen(props: { offerId: string }) {
           </Card>
         )}
 
-      <Text variant="title" role="header">{t('offer.ingredients')}</Text>
-      {o.ingredients.map((i) => (
-        <IngredientLineView key={i.ingredientId} name={pickLocalized(locale, i.name.en, i.name.ar)} quantityPerServing={i.quantityPerServing}
-          unit={i.unit} servings={n} weightBasis={i.weightBasis} isPantry={i.isPantry} allergenDataStatus={i.allergenDataStatus} allergens={i.allergens} />
-      ))}
-
-      <Text variant="title" role="header">{t('offer.instructions')}</Text>
-      <Text>{pickLocalized(locale, o.safetyInstructions.en, o.safetyInstructions.ar)}</Text>
-
-      {o.chefIngredientsOffered ? <Text>• {t('offer.sourcing.chef')}</Text> : null}
-      {o.supplierSourcingAllowed ? <Text>• {t('offer.sourcing.suppliers')}</Text> : null}
       {o.availability === 'AVAILABLE' && o.chef.acceptingOrders ? (() => {
         const sources = [...(o.chefIngredientsOffered ? ['CHEF' as const] : []), ...(o.supplierSourcingAllowed ? ['SUPPLIERS' as const] : [])];
         const chosenSource = source ?? sources[0] ?? null;
@@ -121,6 +110,19 @@ export function OfferDetailScreen(props: { offerId: string }) {
           </Card>
         );
       })() : null}
+
+      <Text variant="title" role="header">{t('offer.ingredients')}</Text>
+      {o.ingredients.map((i) => (
+        <IngredientLineView key={i.ingredientId} name={pickLocalized(locale, i.name.en, i.name.ar)} quantityPerServing={i.quantityPerServing}
+          unit={i.unit} servings={n} weightBasis={i.weightBasis} isPantry={i.isPantry} allergenDataStatus={i.allergenDataStatus} allergens={i.allergens} />
+      ))}
+
+      <Text variant="title" role="header">{t('offer.instructions')}</Text>
+      <Text>{pickLocalized(locale, o.safetyInstructions.en, o.safetyInstructions.ar)}</Text>
+
+      {o.chefIngredientsOffered ? <Text>• {t('offer.sourcing.chef')}</Text> : null}
+      {o.supplierSourcingAllowed ? <Text>• {t('offer.sourcing.suppliers')}</Text> : null}
+
     </Screen>
   );
 }
