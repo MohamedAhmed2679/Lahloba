@@ -1,6 +1,6 @@
 import { ApiError, NetworkError } from '@lahloba/contracts';
 import type { MessageKey, Vars } from '@lahloba/i18n';
-import { Button, Row, Text, useLocale } from '@lahloba/ui';
+import { BrandLockup, Button, Row, useLocale } from '@lahloba/ui';
 import { pickLocalized } from '@lahloba/i18n';
 import { useApp } from '../AppContext';
 
@@ -18,7 +18,7 @@ export function TopBar(props: { showBack?: boolean }) {
   const { t, locale } = useLocale();
   return (
     <Row wrap style={{ justifyContent: 'space-between' }}>
-      {props.showBack !== false ? <Button variant="secondary" label={t('common.back')} onPress={() => nav.back()} testID="back" /> : <Text variant="title">{t('app.name')}</Text>}
+      {props.showBack !== false ? <Button variant="secondary" label={t('common.back')} onPress={() => nav.back()} testID="back" /> : <BrandLockup height={36} />}
       {area ? (
         <Button variant="secondary" label={`${pickLocalized(locale, area.label.en, area.label.ar)} · ${t('location.change')}`} onPress={() => nav.push('/location')} testID="change-area" />
       ) : null}

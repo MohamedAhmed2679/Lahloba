@@ -11,14 +11,16 @@ import { TopBar, errorMessage } from './shared';
 
 /**
  * C05/C06/C07 dish & variant detail (doc 02 §2.3 content hierarchy). Servings changes recompute
- * labor with integer piastres (10 EGP x 4 = 40 EGP). Comparison/checkout is Slice 2, so the CTA
- * is disabled with an explicit explanation rather than a fake price.
+ * labor with integer piastres (10 EGP x 4 = 40 EGP). The order block picks who buys the
+ * ingredients and a kitchen time, then the server prices everything at checkout.
  */
 export function OfferDetailScreen(props: { offerId: string }) {
   const { api, nav } = useApp();
   const { t, locale } = useLocale();
   const offer = useAsync(() => api.offer(props.offerId), [props.offerId]);
   const [servings, setServings] = useState<number | null>(null);
+  const [source, setSource] = useState<'CHEF' | 'SUPPLIERS' | null>(null);
+  const [slotId, setSlotId] = useState<string | null>(null);
 
   useEffect(() => {
     if (offer.status === 'ready') setServings((s) => s ?? offer.data.servingRules.minServings);
@@ -90,8 +92,35 @@ export function OfferDetailScreen(props: { offerId: string }) {
 
       {o.chefIngredientsOffered ? <Text>• {t('offer.sourcing.chef')}</Text> : null}
       {o.supplierSourcingAllowed ? <Text>• {t('offer.sourcing.suppliers')}</Text> : null}
-      <Button label={t('offer.compareCta')} disabled onPress={() => {}} accessibilityHint={t('offer.compareUnavailable')} testID="compare-cta" />
-      <Text variant="caption" muted>{t('offer.compareUnavailable')}</Text>
+      {o.availability === 'AVAILABLE' && o.chef.acceptingOrders ? (() => {
+        const sources = [...(o.chefIngredientsOffered ? ['CHEF' as const] : []), ...(o.supplierSourcingAllowed ? ['SUPPLIERS' as const] : [])];
+        const chosenSource = source ?? sources[0] ?? null;
+        const fitting = o.slots.filter((x) => x.maxServings >= n);
+        const chosenSlot = fitting.find((x) => x.slotId === slotId) ?? fitting[0] ?? null;
+        return (
+          <Card testID="order-block">
+            <Text variant="title" role="header">{t('order.chooseSource')}</Text>
+            {sources.map((src) => (
+              <Card key={src} selected={chosenSource === src} onPress={() => setSource(src)} accessibilityLabel={t(`order.source.${src}` as const)} testID={`source-${src}`}>
+                <Text variant="label">{chosenSource === src ? '✓ ' : ''}{t(`order.source.${src}` as const)}</Text>
+                <Text variant="caption" muted>
+                  {src === 'CHEF' && o.chefIngredientsPerServingPiastres !== null ? t('order.source.CHEF.hint', { amount: money(o.chefIngredientsPerServingPiastres) }) : t('order.source.SUPPLIERS.hint')}
+                </Text>
+              </Card>
+            ))}
+            <Text variant="label">{t('order.chooseTime')}</Text>
+            {fitting.length ? (
+              <Row wrap>
+                {fitting.slice(0, 6).map((x) => (
+                  <Chip key={x.slotId} label={formatSlot(x.startsAt, x.endsAt, locale)} selected={chosenSlot?.slotId === x.slotId} onToggle={() => setSlotId(x.slotId)} testID="slot-chip" />
+                ))}
+              </Row>
+            ) : <Text tone="warning">{t('order.noSlots')}</Text>}
+            <Button label={t('offer.compareCta')} disabled={!chosenSource || !chosenSlot}
+              onPress={() => nav.push(`/checkout?offerId=${o.offerId}&servings=${n}&source=${chosenSource}&slotId=${chosenSlot!.slotId}`)} testID="compare-cta" />
+          </Card>
+        );
+      })() : null}
     </Screen>
   );
 }

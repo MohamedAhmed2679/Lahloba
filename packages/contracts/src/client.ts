@@ -187,6 +187,8 @@ export function createApiClient(opts: ApiClientOptions) {
     chefSlots: (chefId: string) => request(S.CapacitySlotList, 'GET', `/v1/chef/${chefId}/capacity-slots`),
     createChefSlot: (chefId: string, body: z.input<typeof S.CreateCapacitySlotRequest>, key?: string) =>
       request(S.CapacitySlotDto, 'POST', `/v1/chef/${chefId}/capacity-slots`, body, key),
+    cancelChefSlot: (chefId: string, slotId: string, expectedVersion: number, key?: string) =>
+      request(S.CapacitySlotDto, 'POST', `/v1/chef/${chefId}/capacity-slots/${slotId}/cancel`, { expectedVersion }, key),
 
     // Supplier sub-orders
     branchSuborders: (branchId: string) => request(O.SupplierSuborderList, 'GET', `/v1/supplier/branches/${branchId}/suborders`),

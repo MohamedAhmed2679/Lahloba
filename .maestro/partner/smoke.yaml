@@ -1,6 +1,6 @@
 # Partner app smoke test: dev-stub sign-in (CI only), role switch, chef menu.
 appId: com.lahloba.partner
-name: Partner — sign in, switch to chef role, see menu
+name: Partner — sign in, switch to chef role, orders, kitchen times, menu
 ---
 - launchApp:
     clearState: true
@@ -33,6 +33,19 @@ name: Partner — sign in, switch to chef role, see menu
 - tapOn:
     id: "switch-CHEF"
 - extendedWaitUntil:
+    visible:
+      id: "chef-workspace"
+    timeout: 30000
+- takeScreenshot: partner-03-chef-orders
+- tapOn:
+    id: "tab-times"
+- extendedWaitUntil:
+    visible: ".*work units booked.*"
+    timeout: 30000
+- takeScreenshot: partner-04-kitchen-times
+- tapOn:
+    id: "tab-menu"
+- extendedWaitUntil:
     visible: "Molokhia with chicken"
     timeout: 30000
-- takeScreenshot: partner-03-chef-menu
+- takeScreenshot: partner-05-chef-menu

@@ -172,7 +172,7 @@ export async function buildQuote(db: DbClient, actor: ResolvedActor, body: C.Quo
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + make_interval(mins => $9)) RETURNING id, expires_at`,
     [actor.userId, o.id, body.source, body.servings, slot.id, addressId, JSON.stringify(snapshot), q.totalPiastres, QUOTE_TTL_MINUTES]);
   const dto = C.QuoteDto.parse({
-    id: ins.rows[0].id, offerId: o.id, dishTitle: L(o.title_en, o.title_ar), chef: { id: o.chef_id, publicName: o.chef_name },
+    id: ins.rows[0].id, offerId: o.id, addressId, dishTitle: L(o.title_en, o.title_ar), chef: { id: o.chef_id, publicName: o.chef_name },
     source: body.source, servings: body.servings, slot: { slotId: slot.id, startsAt: snapshot.slot.startsAt, endsAt: snapshot.slot.endsAt },
     deliveryArea: L(area.label_en, area.label_ar),
     lines: merged.map((l) => ({ component: l.component, recipientType: l.recipientType, recipientName: l.recipientName, amountPiastres: l.amountPiastres })),

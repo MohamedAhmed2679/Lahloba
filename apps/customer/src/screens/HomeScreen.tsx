@@ -1,6 +1,7 @@
 import { ENTRY_POINTS, type EntryPoint } from '@lahloba/domain';
 import { pickLocalized } from '@lahloba/i18n';
-import { LanguageSwitch, Notice, Row, Screen, ServiceModeCard, Text, useLocale } from '@lahloba/ui';
+import { useAuth } from '@lahloba/app-shell';
+import { Button, LanguageSwitch, Notice, Row, Screen, ServiceModeCard, Text, useLocale } from '@lahloba/ui';
 import { View } from 'react-native';
 import { useApp } from '../AppContext';
 import { TopBar } from './shared';
@@ -8,6 +9,7 @@ import { TopBar } from './shared';
 /** C02: five entry cards. Each opens its own catalog; Learn never requires an area. */
 export function HomeScreen() {
   const { nav, area } = useApp();
+  const auth = useAuth();
   const { t, locale } = useLocale();
   const unsupported = area !== null && !area.physicalOrderingEnabled;
 
@@ -32,6 +34,12 @@ export function HomeScreen() {
           <ServiceModeCard key={e} entry={e} onPress={() => open(e)} />
         ))}
       </View>
+      <Row wrap>
+        {auth.status === 'signedIn' ? <Button variant="secondary" label={t('home.orders')} onPress={() => nav.push('/orders')} testID="home-orders" /> : null}
+        {auth.provider !== 'none' ? (
+          <Button variant="tertiary" label={auth.status === 'signedIn' ? t('home.account') : t('account.signIn')} onPress={() => nav.push('/account')} testID="home-account" />
+        ) : null}
+      </Row>
     </Screen>
   );
 }

@@ -46,6 +46,8 @@ export const BasketLine = z.object({
 export const QuoteDto = z.object({
   id: Uuid,
   offerId: Uuid,
+  /** The customer's own saved delivery address (reuse it when re-quoting). */
+  addressId: Uuid,
   dishTitle: LocalizedText,
   chef: z.object({ id: Uuid, publicName: z.string() }),
   source: IngredientSourceSchema,

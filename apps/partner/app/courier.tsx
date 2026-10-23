@@ -1,10 +1,9 @@
 import { Redirect } from 'expo-router';
 import { usePartner } from '../src/PartnerContext';
-import { CourierScreen } from '../src/screens/WorkspaceScreens';
+import { CourierJobsScreen } from '../src/screens/WorkScreens';
 
 export default function CourierRoute() {
   const { auth, activeRole } = usePartner();
-  const token = auth.status === 'signedIn';
-  if (!token || activeRole?.ui !== 'COURIER') return <Redirect href={'/roles' as never} />;
-  return <CourierScreen />;
+  if (auth.status !== 'signedIn' || activeRole?.ui !== 'COURIER') return <Redirect href={'/roles' as never} />;
+  return <CourierJobsScreen />;
 }

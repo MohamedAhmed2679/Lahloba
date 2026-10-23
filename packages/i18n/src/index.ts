@@ -74,3 +74,8 @@ export function formatSlot(startsAt: string, endsAt: string, locale: Locale): st
   const time = (iso: string) => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Africa/Cairo' }).format(new Date(iso));
   return `${day} ${time(startsAt)}–${time(endsAt)}`;
 }
+
+/** "14:35" in Cairo time (Western digits). */
+export function formatTime(isoTime: string): string {
+  return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Africa/Cairo' }).format(new Date(isoTime));
+}

@@ -126,6 +126,7 @@ export const OfferDetail = z.object({
   laborPerPersonPiastres: Piastres,
   packagingPiastres: Piastres,
   chefIngredientsOffered: z.boolean(),
+  chefIngredientsPerServingPiastres: Piastres.nullable(),
   supplierSourcingAllowed: z.boolean(),
   leadTimeMinutes: z.number().int().positive(),
   servingRules: z.object({ minServings: z.number().int(), maxServings: z.number().int(), servingStep: z.number().int() }),
@@ -380,3 +381,4 @@ export const CapacitySlotDto = z.object({
   status: z.enum(['ACTIVE', 'CANCELLED']), version: z.number().int(),
 });
 export const CapacitySlotList = z.object({ items: z.array(CapacitySlotDto) });
+export type CapacitySlotDto = z.infer<typeof CapacitySlotDto>;

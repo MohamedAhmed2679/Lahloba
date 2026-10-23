@@ -6,7 +6,8 @@
   "exports": {
     "./testing": "./src/testing.ts",
     "./db": "./src/db.ts",
-    "./migrator": "./src/migrator.ts"
+    "./migrator": "./src/migrator.ts",
+    "./sweep": "./src/orders/fulfilment.ts"
   },
   "scripts": {
     "dev": "tsx watch src/main.ts",

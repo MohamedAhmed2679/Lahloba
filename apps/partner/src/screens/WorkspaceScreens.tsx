@@ -3,11 +3,14 @@ import { ApiError, newIdempotencyKey, type ChefDishDto } from '@lahloba/contract
 import { parseEgpToPiastres } from '@lahloba/domain';
 import { formatMoney, pickLocalized } from '@lahloba/i18n';
 import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Notice, Row, Screen, Text, TextField, useLocale } from '@lahloba/ui';
+import { View } from 'react-native';
+import { roleAccent, RoleStrip } from '@lahloba/ui';
 import { usePartner } from '../PartnerContext';
+import { SupplierOrdersPanel, Tabs } from './WorkScreens';
 
-/** H03 groundwork: chef menu list + draft creation. Full variant/BOM editing UI is Slice 2+. */
-export function ChefMenuScreen(props: { chefId: string }) {
-  const { api, nav, interfaces } = usePartner();
+/** H03 groundwork: chef menu list + draft creation (shown as the Menu tab of the chef workspace). */
+export function ChefMenuPanel(props: { chefId: string }) {
+  const { api, interfaces } = usePartner();
   const { t, locale } = useLocale();
   const [dishes, setDishes] = useState<ChefDishDto[] | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -38,9 +41,8 @@ export function ChefMenuScreen(props: { chefId: string }) {
   };
 
   return (
-    <Screen testID="chef-menu">
-      <Button variant="secondary" label={t('common.back')} onPress={() => nav.back()} />
-      <Text variant="display" role="header">{t('partner.menu')}</Text>
+    <View testID="chef-menu" style={{ gap: 12 }}>
+      <Text variant="title" role="header">{t('partner.menu')}</Text>
       {pending ? <Notice>{t('partner.pendingAccess')}</Notice> : null}
       {error ? <ErrorState message={t('common.error.generic')} onRetry={load} /> : null}
       {!error && !dishes ? <LoadingState /> : null}
@@ -59,7 +61,7 @@ export function ChefMenuScreen(props: { chefId: string }) {
       <TextField label={t('partner.titleAr')} value={titleAr} onChangeText={setTitleAr} testID="title-ar" />
       {formError ? <Notice tone="danger">{formError}</Notice> : null}
       <Button label={t('partner.create')} onPress={create} testID="create-dish" />
-    </Screen>
+    </View>
   );
 }
 
@@ -76,6 +78,7 @@ export function SupplierScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const key = useRef(newIdempotencyKey());
+  const [tab, setTab] = useState<'orders' | 'products'>('orders');
 
   useEffect(() => {
     api.myBranches().then((r) => { setBranches(r.items); setBranchId(r.items[0]?.id ?? null); }, () => setBranches([]));
@@ -116,9 +119,9 @@ export function SupplierScreen() {
   };
 
   return (
-    <Screen testID="supplier">
+    <Screen testID="supplier" header={<RoleStrip title={t('partner.role.SUPPLIER')} strip={roleAccent.SUPPLIER.strip} onStrip={roleAccent.SUPPLIER.onStrip} />}>
       <Button variant="secondary" label={t('common.back')} onPress={() => nav.back()} />
-      <Text variant="display" role="header">{t('partner.products')}</Text>
+      <Tabs tabs={[['orders', t('pw.tab.orders')], ['products', t('pw.tab.products')]]} value={tab} onChange={setTab} />
       {branches === null ? <LoadingState /> : null}
       {branches?.length === 0 ? <EmptyState message={t('partner.noBranches')} /> : null}
       <Row wrap>
@@ -126,13 +129,15 @@ export function SupplierScreen() {
           <Chip key={b.id} label={`${b.publicName} · ${t(`partner.state.${b.status}` as 'partner.state.PENDING')}`} selected={branchId === b.id} onToggle={() => setBranchId(b.id)} />
         ))}
       </Row>
-      {products.map((p) => (
+      {tab === 'orders' && branchId ? <SupplierOrdersPanel branchId={branchId} /> : null}
+      {tab === 'products' ? <Text variant="title" role="header">{t('partner.products')}</Text> : null}
+      {tab === 'products' ? products.map((p) => (
         <Card key={p.id}>
           <Text variant="label">{pickLocalized(locale, p.ingredient.en, p.ingredient.ar)} · {p.sku}</Text>
           <Text>{formatMoney(p.pricePiastres, locale)} · {t('partner.availablePacks')}: {p.availablePacks}</Text>
         </Card>
-      ))}
-      {branchId ? (
+      )) : null}
+      {tab === 'products' && branchId ? (
         <>
           <Text variant="title" role="header">{t('partner.addProduct')}</Text>
           <Text variant="label">{t('partner.ingredient')}</Text>
@@ -153,18 +158,6 @@ export function SupplierScreen() {
           <Button label={t('partner.addProduct')} onPress={publish} testID="publish-product" />
         </>
       ) : null}
-    </Screen>
-  );
-}
-
-export function CourierScreen() {
-  const { nav } = usePartner();
-  const { t } = useLocale();
-  return (
-    <Screen testID="courier">
-      <Button variant="secondary" label={t('common.back')} onPress={() => nav.back()} />
-      <Text variant="display" role="header">{t('partner.role.COURIER')}</Text>
-      <Notice>{t('partner.courierJobsLater')}</Notice>
     </Screen>
   );
 }

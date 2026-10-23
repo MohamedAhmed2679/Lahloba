@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { NetworkError, type ApiClient, type Area, type OfferDetail, type OfferSearchResponse } from '@lahloba/contracts';
+import { ApiError, NetworkError, type ApiClient, type Area, type OfferDetail, type OfferSearchResponse } from '@lahloba/contracts';
 import type { Locale } from '@lahloba/i18n';
 import { AuthContextProvider, KEYS, memoryStore, type AuthPort } from '@lahloba/app-shell';
 import { AppProviders, useApp, type LocationPort, type Nav } from '../AppContext';
@@ -8,6 +8,8 @@ import { AreaSelectScreen } from './AreaSelectScreen';
 import { HomeScreen } from './HomeScreen';
 import { OfferDetailScreen } from './OfferDetailScreen';
 import { ResultsScreen } from './ResultsScreen';
+import { CheckoutScreen } from './CheckoutScreen';
+import { OrderScreen } from './OrderScreens';
 
 afterEach(cleanup);
 
@@ -149,7 +151,7 @@ describe('C05-C07 offer detail', () => {
   const detail: OfferDetail = {
     offerId: id(101), dishId: id(201), title: { en: 'Molokhia with chicken', ar: 'ملوخية بالفراخ' }, description: { en: '', ar: '' },
     serviceMode: 'EAT_NOW', chef: { id: id(300), publicName: 'Sample Kitchen A (sample)', area: { en: 'Maadi', ar: 'المعادي' }, acceptingOrders: true },
-    laborPerPersonPiastres: 1000, packagingPiastres: 300, chefIngredientsOffered: true, supplierSourcingAllowed: true, leadTimeMinutes: 120,
+    laborPerPersonPiastres: 1000, packagingPiastres: 300, chefIngredientsOffered: true, chefIngredientsPerServingPiastres: 6000, supplierSourcingAllowed: true, leadTimeMinutes: 120,
     servingRules: { minServings: 2, maxServings: 8, servingStep: 1 }, portion: { grams: 450, basis: 'COOKED_NET' },
     safetyInstructions: { en: 'Eat within the stated time.', ar: 'يؤكل خلال المدة.' }, recipeVersion: 1,
     ingredients: [
@@ -184,11 +186,13 @@ describe('C05-C07 offer detail', () => {
     expect(screen.getByTestId('offer-detail').textContent).toMatch(/Cooked net weight/);
   });
 
-  it('unknown allergen data is flagged; comparison CTA is disabled with an explanation', async () => {
-    setup({ api: { offer: async () => detail } as Partial<ApiClient> }, <OfferDetailScreen offerId={id(101)} />);
+  it('unknown allergen data is flagged; ordering picks who buys ingredients and a kitchen time', async () => {
+    const { nav } = setup({ api: { offer: async () => detail } as Partial<ApiClient> }, <OfferDetailScreen offerId={id(101)} />);
     expect((await screen.findByTestId('allergen-unknown')).textContent).toMatch(/do not assume/);
-    expect(screen.getByTestId('compare-cta').getAttribute('aria-disabled')).toBe('true');
-    expect(screen.getByTestId('offer-detail').textContent).toMatch(/next release/);
+    expect(screen.getByTestId('source-CHEF').textContent).toMatch(/EGP 60 per person/);
+    fireEvent.click(screen.getByTestId('source-SUPPLIERS'));
+    fireEvent.click(screen.getByTestId('compare-cta'));
+    expect(nav.push).toHaveBeenCalledWith(`/checkout?offerId=${id(101)}&servings=2&source=SUPPLIERS&slotId=${id(600)}`);
   });
 
   it('switches to a sibling variant', async () => {
@@ -240,5 +244,80 @@ describe('area and language memory across reloads', () => {
     );
     fireEvent.click(await screen.findByTestId('area-maadi'));
     await waitFor(() => expect(JSON.parse(store.dump()[KEYS.area]!).slug).toBe('maadi'));
+  });
+});
+
+describe('C08-C10 checkout and sandbox payment', () => {
+  const signedIn: AuthPort = { provider: 'clerk', status: 'signedIn', label: 'me@example.com', getToken: async () => 'tok', startCode: async () => ({ error: null }), verifyCode: async () => ({ error: null }), signOut: async () => undefined };
+  const quote = {
+    id: id(700), offerId: id(101), addressId: id(701), dishTitle: { en: 'Molokhia with chicken', ar: 'ملوخية' }, chef: { id: id(300), publicName: 'Sample Kitchen A' },
+    source: 'SUPPLIERS' as const, servings: 4, slot: { slotId: id(600), startsAt: '2026-10-24T09:00:00.000Z', endsAt: '2026-10-24T12:00:00.000Z' }, deliveryArea: { en: 'Maadi', ar: 'المعادي' },
+    lines: [
+      { component: 'LABOR' as const, recipientType: 'CHEF' as const, recipientName: 'Sample Kitchen A', amountPiastres: 4000 },
+      { component: 'INGREDIENTS' as const, recipientType: 'SUPPLIER' as const, recipientName: 'Corner Market', amountPiastres: 16500 },
+      { component: 'FINAL_TRIP' as const, recipientType: 'DELIVERY_LEG' as const, recipientName: 'Meal delivery', amountPiastres: 2500 },
+    ],
+    basket: [{ ingredientId: id(500), name: { en: 'Chicken', ar: 'دجاج' }, requiredQuantity: 600, unit: 'g', chosen: null as any, options: [
+      { productId: id(801), branchId: id(901), branchName: 'Corner Market', branchArea: { en: 'Nasr City', ar: 'مدينة نصر' }, packQuantity: 1000, packUnit: 'g', packPricePiastres: 16500, packs: 1, amountPiastres: 16500, leftoverQuantity: 400, variableWeight: true, availablePacks: 10 },
+      { productId: id(802), branchId: id(902), branchName: 'Grocer', branchArea: { en: 'Maadi', ar: 'المعادي' }, packQuantity: 500, packUnit: 'g', packPricePiastres: 9000, packs: 2, amountPiastres: 18000, leftoverQuantity: 400, variableWeight: true, availablePacks: 20 },
+    ] }],
+    pantryNote: [{ en: 'Salt', ar: 'ملح' }], totalPiastres: 23000, expiresAt: '2026-10-23T12:10:00.000Z', illustrative: true, sandbox: true as const,
+  };
+  quote.basket[0]!.chosen = quote.basket[0]!.options[0];
+
+  it('asks guests to sign in before pricing', () => {
+    setup({ api: {}, area: maadi }, <CheckoutScreen offerId={id(101)} servings={4} source="SUPPLIERS" slotId={id(600)} />);
+    expect(screen.getByText(/Sign in to order/)).toBeTruthy();
+  });
+
+  it('prices on the server, shows who is paid, switches shops per ingredient, and places the order', async () => {
+    const quoteFn = vi.fn(async () => quote);
+    const createOrder = vi.fn(async () => ({ id: id(710) }) as never);
+    const { nav } = setup({ api: { quote: quoteFn, createOrder } as Partial<ApiClient>, area: maadi, auth: signedIn }, <CheckoutScreen offerId={id(101)} servings={4} source="SUPPLIERS" slotId={id(600)} />);
+    expect(screen.getByTestId('sandbox-banner').textContent).toMatch(/No real money/);
+    await act(async () => { fireEvent.click(screen.getByTestId('get-price')); });
+    expect(screen.getByText(/complete/)).toBeTruthy(); // required field message
+    fireEvent.change(screen.getByTestId('address-text'), { target: { value: '12 Road 9, Maadi' } });
+    await act(async () => { fireEvent.click(screen.getByTestId('get-price')); });
+    expect(quoteFn).toHaveBeenCalledWith(expect.objectContaining({ servings: 4, source: 'SUPPLIERS', address: { addressText: '12 Road 9, Maadi', areaId: maadi.id } }));
+    expect(screen.getByTestId('price-lines').textContent).toMatch(/Paid to Corner Market/);
+    expect(screen.getByTestId('quote-total').textContent).toMatch(/EGP 230/);
+    await act(async () => { fireEvent.click(screen.getByTestId(`option-${id(802)}`)); });
+    expect(quoteFn).toHaveBeenLastCalledWith(expect.objectContaining({ addressId: id(701), supplierChoices: [{ ingredientId: id(500), productId: id(802) }] }));
+    await act(async () => { fireEvent.click(screen.getByTestId('place-order')); });
+    expect(createOrder).toHaveBeenCalledWith(id(700), expect.any(String));
+    expect(nav.replace).toHaveBeenCalledWith(`/orders/${id(710)}`);
+  });
+
+  it('explains basket problems in plain words', async () => {
+    const quoteFn = vi.fn(async () => { throw new ApiError(409, 'BASKET_INCOMPLETE', 'x', 'c', { missing: ['Garlic'] }); });
+    setup({ api: { quote: quoteFn } as Partial<ApiClient>, area: maadi, auth: signedIn }, <CheckoutScreen offerId={id(101)} servings={4} source="SUPPLIERS" slotId={id(600)} />);
+    fireEvent.change(screen.getByTestId('address-text'), { target: { value: '12 Road 9, Maadi' } });
+    await act(async () => { fireEvent.click(screen.getByTestId('get-price')); });
+    expect(screen.getByTestId('checkout-error').textContent).toMatch(/Garlic/);
+  });
+
+  it('order page: pays through the sandbox page and shows funding separately from cooking', async () => {
+    const base = {
+      id: id(710), reference: 'LH-ABCD1234', dishTitle: quote.dishTitle, chef: quote.chef, source: 'CHEF' as const, servings: 4, slot: quote.slot,
+      fulfillmentState: 'RESERVED' as const, fundingState: 'UNFUNDED' as const, chefAcceptance: 'PENDING' as const, suppliers: [], totalPiastres: 30800, lines: quote.lines,
+      allocations: [{ allocationId: id(720), recipientType: 'CHEF' as const, recipientName: 'Sample Kitchen A', components: ['LABOR' as const], amountPiastres: 28300, state: 'UNPAID' as const, refundedPiastres: 0 },
+        { allocationId: id(721), recipientType: 'DELIVERY_LEG' as const, recipientName: 'Meal delivery', components: ['FINAL_TRIP' as const], amountPiastres: 2500, state: 'UNPAID' as const, refundedPiastres: 0 }],
+      payBy: '2026-10-23T12:30:00.000Z', dropoffCode: '123456', legs: [], cancelReason: null, events: [], version: 1, createdAt: '2026-10-23T12:00:00.000Z', sandbox: true as const,
+    };
+    let current: any = base;
+    const order = vi.fn(async () => current);
+    const startPayment = vi.fn(async () => ({ sessionId: `sim_${id(710)}`, orderId: id(710), attempts: [{ attemptId: id(730), recipientName: 'x', amountPiastres: 30800, state: 'PENDING' as const }], totalPiastres: 30800, provider: 'simulator' as const, sandbox: true as const }));
+    const simulatePayment = vi.fn(async () => { current = { ...base, fundingState: 'FUNDED', allocations: base.allocations.map((a) => ({ ...a, state: 'PAID' })) }; return {} as never; });
+    setup({ api: { order, startPayment, simulatePayment } as Partial<ApiClient>, area: maadi, auth: signedIn }, <OrderScreen orderId={id(710)} />);
+    expect((await screen.findByTestId('order-status')).textContent).toMatch(/Waiting for payment/);
+    expect(screen.queryByTestId('dropoff-code')).toBeNull(); // only once a courier has the meal
+    await act(async () => { fireEvent.click(screen.getByTestId('pay-start')); });
+    expect(screen.getByTestId('sandbox-pay').textContent).toMatch(/EGP 308/);
+    await act(async () => { fireEvent.click(screen.getByTestId('pay-succeed')); });
+    expect(simulatePayment).toHaveBeenCalledWith(`sim_${id(710)}`, { outcome: 'SUCCEED' }, expect.any(String));
+    await waitFor(() => expect(screen.getByTestId('order-status').textContent).toMatch(/Paid — waiting for the cook/));
+    expect(screen.getByTestId('allocations').textContent).toMatch(/Paid/);
+    expect(screen.queryByTestId('pay-card')).toBeNull();
   });
 });
