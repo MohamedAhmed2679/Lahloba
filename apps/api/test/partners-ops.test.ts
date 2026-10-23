@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TEST_DB_ADMIN_URL, createTestContext, type TestContext } from '../src/testing';
-import { call } from './helpers';
+import { addEvidence, call } from './helpers';
 
 describe.skipIf(!TEST_DB_ADMIN_URL)('identity, partner applications and operations review (H01, S01, D01, O01)', () => {
   let ctx: TestContext;
@@ -72,7 +72,10 @@ describe.skipIf(!TEST_DB_ADMIN_URL)('identity, partner applications and operatio
 
     const ev = await call(ctx, 'POST', `/v1/partner-applications/${appId}/evidence`, { token: tok, body: { evidenceType: 'NATIONAL_ID', contentType: 'image/jpeg', byteSize: 2048, expiresOn: '2030-01-31' } });
     expect(ev.status).toBe(201);
-    expect(ev.body.upload.status).toBe('DEV_METADATA_ONLY');
+    expect(ev.body.upload.status).toBe('PENDING_UPLOAD');
+    // A registered but not-yet-uploaded document does not satisfy the approval rule.
+    expect((await call(ctx, 'POST', `/v1/ops/partner-applications/${appId}/decision`, { token: ops, body: { decision: 'APPROVE', reason: 'too early', expectedVersion: 1 } })).body.error.code).toBe('EVIDENCE_REQUIRED');
+    await addEvidence(ctx, tok, appId, 'KITCHEN_PHOTO');
     // Another user cannot attach evidence to this application.
     const other = await ctx.token('someone-else');
     expect((await call(ctx, 'POST', `/v1/partner-applications/${appId}/evidence`, { token: other, body: { evidenceType: 'OTHER', contentType: 'image/png', byteSize: 10 } })).status).toBe(404);
@@ -83,8 +86,9 @@ describe.skipIf(!TEST_DB_ADMIN_URL)('identity, partner applications and operatio
     // Ops view: metadata only, no object key or kitchen address; the read is audited.
     const detail = await call(ctx, 'GET', `/v1/ops/partner-applications/${appId}`, { token: ops });
     expect(detail.status).toBe(200);
-    expect(detail.body.evidence).toHaveLength(1);
-    expect(detail.raw).not.toMatch(/dev-only\/|object_key|objectKey|SECRET-STREET/);
+    expect(detail.body.evidence).toHaveLength(2);
+    expect(detail.body.evidence.map((e: any) => e.fileState).sort()).toEqual(['PENDING_UPLOAD', 'UPLOADED']);
+    expect(detail.raw).not.toMatch(/evidence\/partner-evidence|object_key|objectKey|SECRET-STREET/);
     const reads = await ctx.pool.query(`SELECT count(*)::int AS n FROM audit_events WHERE action = 'PARTNER_EVIDENCE_METADATA_READ' AND target_id = $1`, [appId]);
     expect(reads.rows[0].n).toBe(1);
 
@@ -116,7 +120,7 @@ describe.skipIf(!TEST_DB_ADMIN_URL)('identity, partner applications and operatio
   it('O01: an ops reviewer cannot approve their own application (API and database)', async () => {
     const own = await call(ctx, 'POST', '/v1/partner-applications', { token: ops, body: { kind: 'COURIER', courier: { displayName: 'Ops Person', equipment: ['BICYCLE'] } } });
     expect(own.status).toBe(201);
-    await call(ctx, 'POST', `/v1/partner-applications/${own.body.id}/evidence`, { token: ops, body: { evidenceType: 'DRIVING_LICENSE', contentType: 'application/pdf', byteSize: 100 } });
+    await addEvidence(ctx, ops, own.body.id, 'DRIVING_LICENSE');
     const self = await call(ctx, 'POST', `/v1/ops/partner-applications/${own.body.id}/decision`, { token: ops, body: { decision: 'APPROVE', reason: 'self', expectedVersion: 1 } });
     expect(self.status).toBe(403);
     await expect(ctx.pool.query(
@@ -162,7 +166,7 @@ describe.skipIf(!TEST_DB_ADMIN_URL)('identity, partner applications and operatio
   it('concurrent decisions on one application: exactly one wins', async () => {
     const tok = await ctx.token('race-courier');
     const a = await call(ctx, 'POST', '/v1/partner-applications', { token: tok, body: { kind: 'COURIER', courier: { displayName: 'Race', equipment: ['CAR'] } } });
-    await call(ctx, 'POST', `/v1/partner-applications/${a.body.id}/evidence`, { token: tok, body: { evidenceType: 'DRIVING_LICENSE', contentType: 'image/png', byteSize: 10 } });
+    await addEvidence(ctx, tok, a.body.id, 'DRIVING_LICENSE');
     const second = await ctx.token('sample-ops-reviewer');
     const results = await Promise.all([
       call(ctx, 'POST', `/v1/ops/partner-applications/${a.body.id}/decision`, { token: ops, body: { decision: 'APPROVE', reason: 'ok one', expectedVersion: 1 } }),

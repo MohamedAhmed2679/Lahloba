@@ -134,7 +134,11 @@ export function registerPartnerRoutes(app: FastifyInstance, ctx: RouteContext) {
         [id, body.evidenceType, objectKey, storageState, body.contentType, body.byteSize, body.expiresOn ?? null, actor.userId],
       );
       await audit(db, { actorUserId: actor.userId, action: 'PARTNER_EVIDENCE_REGISTERED', targetType: 'partner_application', targetId: id, metadata: { evidenceType: body.evidenceType, storageState }, correlationId: req.id });
-      return C.EvidenceRegistered.parse({ evidenceId: e.rows[0]!.id, upload: { status: storageState } });
+      const evidenceId = e.rows[0]!.id;
+      return C.EvidenceRegistered.parse({
+        evidenceId,
+        upload: { status: storageState, uploadPath: storageState === 'PENDING_UPLOAD' ? `/v1/partner-evidence/${evidenceId}/content` : null },
+      });
     });
   });
 }

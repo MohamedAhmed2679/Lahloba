@@ -2,8 +2,9 @@
 # Maestro against a real API + PostgreSQL started on the runner (dev identity stub, CI only).
 name: native
 on:
+  # PR runs cover the feature branch; pushes to main cover merges. Avoids duplicate (and costly macOS) runs.
   push:
-    branches: [feature/expo-platform, main]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 concurrency:

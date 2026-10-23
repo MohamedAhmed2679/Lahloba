@@ -30,6 +30,12 @@ const ELIGIBLE_OFFER_FROM = `
   JOIN service_areas pa ON pa.id = c.public_area_id
   WHERE ov.status = 'ACTIVE' AND ${ELIGIBLE_CHEF}`;
 
+/** Capacity (H04): a future slot, inside the booking window, with room for the minimum servings. */
+export const BOOKING_WINDOW = "interval '7 days'";
+export const CAPACITY_OK = `EXISTS (SELECT 1 FROM chef_capacity_slots s WHERE s.chef_id = c.id AND s.status = 'ACTIVE'
+  AND s.starts_at >= now() + make_interval(mins => ov.lead_time_minutes) AND s.starts_at < now() + ${BOOKING_WINDOW}
+  AND s.total_work_units - s.reserved_work_units >= ov.base_work_units + ov.work_units_per_serving * ov.min_servings)`;
+
 type AreaRow = { id: string; status: string; physical_ordering_enabled: boolean };
 
 async function loadArea(db: Queryable, areaId: string): Promise<AreaRow> {
@@ -141,7 +147,7 @@ export function registerPublicRoutes(app: FastifyInstance, ctx: RouteContext) {
     const dishTypeIds = await resolveFacetIds(pool, 'DISH_TYPE', q.dishType);
     const base = `${ELIGIBLE_OFFER_FROM} AND ov.service_mode = $2
       AND EXISTS (SELECT 1 FROM chef_service_areas csa WHERE csa.chef_id = c.id AND csa.area_id = $1)
-      AND c.accepting_orders`;
+      AND c.accepting_orders AND ${CAPACITY_OK}`;
     const cuisineCond = (p: string) => `AND ($${p}::uuid[] IS NULL OR EXISTS (SELECT 1 FROM dish_facets df WHERE df.dish_id = d.id AND df.facet_id = ANY($${p}::uuid[])))`;
     const dishCond = (p: string) => `AND ($${p}::uuid[] IS NULL OR EXISTS (SELECT 1 FROM dish_facets df WHERE df.dish_id = d.id AND df.facet_id = ANY($${p}::uuid[])))`;
 
@@ -211,17 +217,25 @@ export function registerPublicRoutes(app: FastifyInstance, ctx: RouteContext) {
       `SELECT ${OFFER_COLUMNS}, d.description_en, d.description_ar, c.accepting_orders, ov.packaging_piastres,
               ov.chef_ingredients_per_serving_piastres, ov.supplier_sourcing_allowed, ov.max_servings, ov.serving_step,
               ov.portion_weight_grams, ov.portion_weight_basis, ov.safety_instructions_en, ov.safety_instructions_ar,
-              rv.id AS recipe_version_id, rv.version AS recipe_version
+              rv.id AS recipe_version_id, rv.version AS recipe_version, ov.base_work_units, ov.work_units_per_serving
        ${ELIGIBLE_OFFER_FROM} AND ov.id = $1`,
       [id],
     );
     const o = r.rows[0];
     if (!o) throw notFound('Offer');
-    const [ingredients, siblings, cuisines] = await Promise.all([
+    const [ingredients, siblings, cuisines, slots] = await Promise.all([
       loadIngredients(pool, o.recipe_version_id),
       pool.query(`SELECT id, service_mode FROM offer_variants WHERE dish_id = $1 AND status = 'ACTIVE' AND id <> $2 ORDER BY service_mode`, [o.dish_id, id]),
       cuisinesByDish(pool, [o.dish_id]),
+      pool.query(
+        `SELECT id, starts_at, ends_at, total_work_units - reserved_work_units AS available FROM chef_capacity_slots
+         WHERE chef_id = $1 AND status = 'ACTIVE' AND starts_at >= now() + make_interval(mins => $2::int) AND starts_at < now() + ${BOOKING_WINDOW}
+         AND total_work_units - reserved_work_units >= $3::int ORDER BY starts_at LIMIT 12`,
+        [o.chef_id, o.lead_time_minutes, o.base_work_units + o.work_units_per_serving * o.min_servings],
+      ),
     ]);
+    const unit = { base: o.base_work_units as number, perServing: o.work_units_per_serving as number };
+    const maxServingsFor = (available: number) => Math.min(o.max_servings, Math.floor((available - unit.base) / unit.perServing));
     return C.OfferDetail.parse({
       offerId: o.offer_id, dishId: o.dish_id, title: L(o.title_en, o.title_ar), description: L(o.description_en, o.description_ar),
       serviceMode: o.service_mode,
@@ -237,6 +251,10 @@ export function registerPublicRoutes(app: FastifyInstance, ctx: RouteContext) {
       siblingVariants: siblings.rows.map((s) => ({ offerId: s.id, serviceMode: s.service_mode })),
       cuisines: cuisines.get(o.dish_id) ?? [],
       illustrative: o.illustrative,
+      availability: !o.accepting_orders ? 'KITCHEN_CLOSED' : slots.rows.length ? 'AVAILABLE' : 'FULLY_BOOKED',
+      slots: o.accepting_orders ? slots.rows.map((x) => ({
+        slotId: x.id, startsAt: new Date(x.starts_at).toISOString(), endsAt: new Date(x.ends_at).toISOString(), maxServings: maxServingsFor(x.available),
+      })) : [],
     });
   });
 

@@ -67,4 +67,14 @@ describe('server configuration separation', () => {
     expect(() => loadServerConfig({ ...base, LAHLOBA_ENV: 'production', IDENTITY_PROVIDER: 'clerk', CLERK_PUBLISHABLE_KEY: key })).toThrow(/AUTHORIZED_PARTIES/);
     expect(() => loadServerConfig({ ...base, LAHLOBA_ENV: 'development', IDENTITY_PROVIDER: 'clerk', CLERK_PUBLISHABLE_KEY: 'sk_test_secret' })).toThrow(/pk_test/);
   });
+
+  it('guards file storage and the payment simulator', () => {
+    const dev = { ...base, LAHLOBA_ENV: 'development', IDENTITY_PROVIDER: 'dev-stub', LAHLOBA_DEV_IDENTITY_STUB: 'true' };
+    expect(() => loadServerConfig({ ...dev, EVIDENCE_STORAGE: 'local-disk' })).toThrow(/STORAGE_SIGNING_SECRET/);
+    expect(loadServerConfig({ ...dev, EVIDENCE_STORAGE: 'local-disk', STORAGE_SIGNING_SECRET: 's'.repeat(32) }).storage.signingSecret).toBe('s'.repeat(32));
+    const prod = { ...base, LAHLOBA_ENV: 'production', IDENTITY_PROVIDER: 'oidc', OIDC_ISSUER: 'https://id.example', OIDC_AUDIENCE: 'a', OIDC_JWKS_URL: 'https://id.example/jwks' };
+    expect(() => loadServerConfig({ ...prod, EVIDENCE_STORAGE: 'local-disk', STORAGE_SIGNING_SECRET: 's'.repeat(32) })).toThrow(/forbidden/);
+    expect(() => loadServerConfig({ ...prod, PAYMENTS_PROVIDER: 'simulator', PAYMENTS_SIMULATOR_SECRET: 'p'.repeat(32) })).toThrow(/forbidden in production/);
+    expect(loadServerConfig({ ...prod, LAHLOBA_ENV: 'staging', PAYMENTS_PROVIDER: 'simulator', PAYMENTS_SIMULATOR_SECRET: 'p'.repeat(32) }).payments.provider).toBe('simulator');
+  });
 });

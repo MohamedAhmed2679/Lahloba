@@ -157,7 +157,20 @@ describe('C05-C07 offer detail', () => {
       { ingredientId: id(501), name: { en: 'Spice mix', ar: 'بهارات' }, quantityPerServing: 2, unit: 'g', weightBasis: 'AS_PURCHASED', isPantry: true, allowedOmission: false, allergens: [], allergenDataStatus: 'UNKNOWN' },
     ],
     siblingVariants: [{ offerId: id(102), serviceMode: 'HEAT_AT_HOME' }], cuisines: [], illustrative: true,
+    availability: 'AVAILABLE', slots: [{ slotId: id(600), startsAt: '2026-10-24T09:00:00.000Z', endsAt: '2026-10-24T12:00:00.000Z', maxServings: 3 }],
   };
+
+  it('shows the next kitchen times, warns when none fits the group, and explains a fully booked kitchen', async () => {
+    setup({ api: { offer: async () => detail } as Partial<ApiClient> }, <OfferDetailScreen offerId={id(101)} />);
+    expect((await screen.findByTestId('offer-slot')).textContent).toMatch(/Sat 24 Oct 12:00–15:00 · up to 3 people/);
+    expect(screen.queryByTestId('offer-slot-too-small')).toBeNull();
+    fireEvent.click(screen.getByTestId('servings-increase'));
+    fireEvent.click(screen.getByTestId('servings-increase'));
+    expect(screen.getByTestId('offer-slot-too-small').textContent).toMatch(/4 people/);
+    cleanup();
+    setup({ api: { offer: async () => ({ ...detail, availability: 'FULLY_BOOKED' as const, slots: [] }) } as Partial<ApiClient> }, <OfferDetailScreen offerId={id(101)} />);
+    expect((await screen.findByTestId('offer-fully-booked')).textContent).toMatch(/fully booked/);
+  });
 
   it('founder example: 4 servings at 10 EGP per person shows 40 EGP; quantities scale; raw and cooked labelled', async () => {
     setup({ api: { offer: async () => detail } as Partial<ApiClient> }, <OfferDetailScreen offerId={id(101)} />);

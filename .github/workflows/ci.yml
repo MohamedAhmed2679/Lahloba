@@ -1,6 +1,11 @@
-# CI definition for Slice 1. NOTE: authored and validated locally only; it has not yet been run on GitHub.
+# Type checks, unit and integration tests (PostgreSQL service) and web builds.
 name: ci
-on: [push, pull_request]
+on:
+  # PR runs cover the feature branch; pushes to main cover merges. Avoids duplicate (and costly macOS) runs.
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 jobs:
   checks:
     runs-on: ubuntu-latest

@@ -10,6 +10,7 @@ import { forbidden, toHttpError, unauthenticated } from './errors';
 import type { IdentityProvider } from './identity/provider';
 import { registerChefRoutes } from './routes/chef';
 import { registerDevRoutes } from './routes/dev';
+import { registerEvidenceRoutes } from './routes/evidence';
 import { registerMeRoutes } from './routes/me';
 import { registerOpsRoutes } from './routes/ops';
 import { registerPartnerRoutes } from './routes/partners';
@@ -52,7 +53,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     origin: deps.config.corsOrigins.length ? deps.config.corsOrigins : false,
     allowedHeaders: ['authorization', 'content-type', 'idempotency-key', 'x-correlation-id'],
     exposedHeaders: ['x-correlation-id'],
-    methods: ['GET', 'POST', 'PATCH'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT'],
   });
   await app.register(rateLimit, { global: true, max: 300 * (deps.rateLimitScale ?? 1), timeWindow: '1 minute' });
 
@@ -97,6 +98,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(async (s) => registerOpsRoutes(s, ctx));
   await app.register(async (s) => registerChefRoutes(s, ctx));
   await app.register(async (s) => registerSupplierRoutes(s, ctx));
+  await app.register(async (s) => registerEvidenceRoutes(s, ctx));
   if (deps.identity.kind === 'dev-stub' && (deps.config.env === 'development' || deps.config.env === 'test')) {
     await app.register(async (s) => registerDevRoutes(s, ctx));
   }

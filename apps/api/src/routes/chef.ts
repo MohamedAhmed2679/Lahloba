@@ -200,6 +200,66 @@ export function registerChefRoutes(app: FastifyInstance, ctx: RouteContext) {
     });
   });
 
+  // H04: capacity slots in work units. Overlaps are refused by the database (exclusion constraint).
+  const SlotBody = z.object({
+    startsAt: z.string().datetime({ offset: true }),
+    endsAt: z.string().datetime({ offset: true }),
+    totalWorkUnits: z.number().int().min(1).max(10000),
+  }).strict();
+  const slotDto = (r: Record<string, any>) => ({
+    id: r.id, startsAt: new Date(r.starts_at).toISOString(), endsAt: new Date(r.ends_at).toISOString(),
+    totalWorkUnits: r.total_work_units, reservedWorkUnits: r.reserved_work_units, status: r.status, version: r.version,
+  });
+
+  app.get('/v1/chef/:chefId/capacity-slots', async (req) => {
+    const { chefId } = ChefParams.parse(req.params);
+    await actorFor(req, chefId);
+    const r = await ctx.pool.query(
+      `SELECT * FROM chef_capacity_slots WHERE chef_id = $1 AND ends_at > now() - interval '1 day' AND status = 'ACTIVE' ORDER BY starts_at LIMIT 200`, [chefId]);
+    return { items: r.rows.map(slotDto) };
+  });
+
+  app.post('/v1/chef/:chefId/capacity-slots', async (req, reply) => {
+    const { chefId } = ChefParams.parse(req.params);
+    await actorFor(req, chefId);
+    const body = SlotBody.parse(req.body);
+    if (new Date(body.startsAt).getTime() < Date.now()) throw new HttpError(422, 'SLOT_IN_PAST', 'Slots must start in the future');
+    return runMutation(ctx, req, reply, { route: 'POST /v1/chef/:chefId/capacity-slots', params: { chefId }, body, status: 201 }, async (db, actor) => {
+      try {
+        await db.query('SAVEPOINT slot');
+        const r = await db.query(
+          `INSERT INTO chef_capacity_slots (chef_id, starts_at, ends_at, total_work_units) VALUES ($1, $2, $3, $4) RETURNING *`,
+          [chefId, body.startsAt, body.endsAt, body.totalWorkUnits],
+        );
+        await audit(db, { actorUserId: actor.userId, action: 'CAPACITY_SLOT_CREATED', targetType: 'chef_capacity_slot', targetId: r.rows[0].id, correlationId: req.id });
+        return slotDto(r.rows[0]);
+      } catch (e) {
+        if ((e as { code?: string }).code === '23P01') {
+          await db.query('ROLLBACK TO SAVEPOINT slot');
+          throw conflict('SLOT_OVERLAP', 'This slot overlaps another active slot');
+        }
+        throw e;
+      }
+    });
+  });
+
+  app.post('/v1/chef/:chefId/capacity-slots/:slotId/cancel', async (req, reply) => {
+    const { chefId, slotId } = ChefParams.extend({ slotId: z.string().uuid() }).parse(req.params);
+    await actorFor(req, chefId);
+    const body = C.ExpectedVersion.parse(req.body);
+    return runMutation(ctx, req, reply, { route: 'POST /v1/chef/:chefId/capacity-slots/:id/cancel', params: { chefId, slotId }, body }, async (db, actor) => {
+      const r = await db.query(`SELECT * FROM chef_capacity_slots WHERE id = $1 AND chef_id = $2 FOR UPDATE`, [slotId, chefId]);
+      const slot = r.rows[0];
+      if (!slot) throw notFound('Slot');
+      if (slot.version !== body.expectedVersion) throw conflict('VERSION_CONFLICT', 'Slot changed; reload', { currentVersion: slot.version });
+      // Existing bookings need an operations decision; they are never silently deleted (H12).
+      if (slot.reserved_work_units > 0) throw conflict('SLOT_HAS_BOOKINGS', 'This slot has bookings; contact operations to move them');
+      const u = await db.query(`UPDATE chef_capacity_slots SET status = 'CANCELLED', version = version + 1 WHERE id = $1 RETURNING *`, [slotId]);
+      await audit(db, { actorUserId: actor.userId, action: 'CAPACITY_SLOT_CANCELLED', targetType: 'chef_capacity_slot', targetId: slotId, correlationId: req.id });
+      return slotDto(u.rows[0]);
+    });
+  });
+
   // H12 groundwork: pause/resume new orders. Existing commitments arrive with orders (Slice 2+).
   app.post('/v1/chef/:chefId/availability', async (req, reply) => {
     const { chefId } = ChefParams.parse(req.params);

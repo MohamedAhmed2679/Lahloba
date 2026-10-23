@@ -7,7 +7,11 @@ export DATABASE_URL="${DATABASE_URL:?DATABASE_URL required}"
 export API_HOST=0.0.0.0 API_PORT=4000 CORS_ORIGINS="*"
 export IDENTITY_PROVIDER=dev-stub LAHLOBA_DEV_IDENTITY_STUB=true
 export DEV_STUB_SIGNING_SECRET="ci-only-dev-stub-secret-$(date +%s)-padding-padding"
-export EVIDENCE_STORAGE=dev-metadata-only
+# Real private uploads on the runner's disk (local-disk is refused outside development/test).
+export EVIDENCE_STORAGE=local-disk STORAGE_LOCAL_DIR="${RUNNER_TEMP:-/tmp}/lahloba-evidence"
+export STORAGE_SIGNING_SECRET="ci-only-storage-secret-$(date +%s)-padding-padding"
+# Sandbox payment simulator: no real money; refused in production.
+export PAYMENTS_PROVIDER=simulator PAYMENTS_SIMULATOR_SECRET="ci-only-payments-secret-$(date +%s)-padding"
 pnpm db:migrate
 pnpm db:seed:dev
 nohup pnpm --filter @lahloba/api run start > "${RUNNER_TEMP:-/tmp}/api.log" 2>&1 &

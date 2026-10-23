@@ -27,7 +27,12 @@ const RawConfig = z.object({
   OIDC_ISSUER: z.string().optional(),
   OIDC_AUDIENCE: z.string().optional(),
   OIDC_JWKS_URL: z.string().optional(),
-  EVIDENCE_STORAGE: z.enum(['disabled', 'dev-metadata-only']).default('disabled'),
+  EVIDENCE_STORAGE: z.enum(['disabled', 'dev-metadata-only', 'local-disk', 'vercel-blob']).default('disabled'),
+  STORAGE_LOCAL_DIR: z.string().optional(),
+  STORAGE_SIGNING_SECRET: z.string().optional(),
+  PAYMENTS_PROVIDER: z.enum(['disabled', 'simulator']).default('disabled'),
+  PAYMENTS_SIMULATOR_SECRET: z.string().optional(),
+  PUBLIC_API_URL: z.string().optional(),
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().min(100).default(2000),
   WORKER_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(50).default(8),
 });
@@ -42,7 +47,10 @@ export interface ServerConfig {
     | { kind: 'oidc'; issuer: string; audience: string; jwksUrl: string }
     | { kind: 'clerk'; issuer: string; jwksUrl: string; authorizedParties: string[] }
     | { kind: 'dev-stub'; signingSecret: string };
-  evidenceStorage: 'disabled' | 'dev-metadata-only';
+  evidenceStorage: 'disabled' | 'dev-metadata-only' | 'local-disk' | 'vercel-blob';
+  storage: { localDir: string | null; signingSecret: string | null };
+  payments: { provider: 'disabled' } | { provider: 'simulator'; webhookSecret: string };
+  publicApiUrl: string | null;
   worker: { pollIntervalMs: number; maxAttempts: number };
 }
 
@@ -112,8 +120,19 @@ export function loadServerConfig(source: Record<string, string | undefined> = pr
     identity = { kind: 'oidc', issuer: OIDC_ISSUER, audience: OIDC_AUDIENCE, jwksUrl: OIDC_JWKS_URL };
   }
 
-  if (raw.EVIDENCE_STORAGE === 'dev-metadata-only' && !isLocalEnv(env)) {
-    throw new ConfigError('EVIDENCE_STORAGE=dev-metadata-only is forbidden outside development/test.');
+  if ((raw.EVIDENCE_STORAGE === 'dev-metadata-only' || raw.EVIDENCE_STORAGE === 'local-disk') && !isLocalEnv(env)) {
+    throw new ConfigError(`EVIDENCE_STORAGE=${raw.EVIDENCE_STORAGE} is forbidden outside development/test.`);
+  }
+  const fileStorage = raw.EVIDENCE_STORAGE === 'local-disk' || raw.EVIDENCE_STORAGE === 'vercel-blob';
+  if (fileStorage && (raw.STORAGE_SIGNING_SECRET ?? '').length < 32) {
+    throw new ConfigError('STORAGE_SIGNING_SECRET (32+ characters) is required when files are stored.');
+  }
+  let payments: ServerConfig['payments'] = { provider: 'disabled' };
+  if (raw.PAYMENTS_PROVIDER === 'simulator') {
+    // The simulator moves no money. It must never stand in for a real provider in production.
+    if (env === 'production') throw new ConfigError('PAYMENTS_PROVIDER=simulator is forbidden in production.');
+    if ((raw.PAYMENTS_SIMULATOR_SECRET ?? '').length < 32) throw new ConfigError('PAYMENTS_SIMULATOR_SECRET (32+ characters) is required for the payment simulator.');
+    payments = { provider: 'simulator', webhookSecret: raw.PAYMENTS_SIMULATOR_SECRET! };
   }
   if (!isLocalEnv(env) && raw.CORS_ORIGINS.some((o) => o === '*')) {
     throw new ConfigError('Wildcard CORS origin is forbidden outside development/test.');
@@ -127,6 +146,9 @@ export function loadServerConfig(source: Record<string, string | undefined> = pr
     corsOrigins: raw.CORS_ORIGINS,
     identity,
     evidenceStorage: raw.EVIDENCE_STORAGE,
+    storage: { localDir: raw.STORAGE_LOCAL_DIR ?? null, signingSecret: fileStorage ? raw.STORAGE_SIGNING_SECRET! : null },
+    payments,
+    publicApiUrl: raw.PUBLIC_API_URL ?? null,
     worker: { pollIntervalMs: raw.WORKER_POLL_INTERVAL_MS, maxAttempts: raw.WORKER_MAX_ATTEMPTS },
   };
 }
@@ -139,6 +161,7 @@ export function describeConfig(c: ServerConfig) {
     apiPort: c.apiPort,
     identity: c.identity.kind,
     evidenceStorage: c.evidenceStorage,
+    payments: c.payments.provider,
     corsOrigins: c.corsOrigins,
   };
 }

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { pickFile as defaultPickFile, type PickFile } from './filePicker';
 import { createApiClient, type ApiClient, type Me } from '@lahloba/contracts';
 import { availableInterfaces, type Actor, type PublicRoleInterface } from '@lahloba/domain';
 import { isLocale, type Locale } from '@lahloba/i18n';
@@ -10,6 +11,7 @@ export interface Nav { push(path: string): void; replace(path: string): void; ba
 export interface ActiveRole { ui: PublicRoleInterface; scopeId: string | null }
 
 interface PartnerValue {
+  pickFile: PickFile;
   api: ApiClient;
   nav: Nav;
   auth: AuthPort;
@@ -29,6 +31,7 @@ const isRole = (v: unknown): v is ActiveRole => typeof v === 'object' && v !== n
 export function PartnerProviders(props: {
   apiUrl: string; nav: Nav; store: KeyValueStore; scheme?: ColorScheme; initialLocale?: Locale; children: ReactNode;
   apiFactory?: (getToken: () => Promise<string | null>) => ApiClient;
+  pickFile?: PickFile;
 }) {
   const auth = useAuth();
   const authRef = useRef(auth);
@@ -73,7 +76,7 @@ export function PartnerProviders(props: {
 
   const setLocale = useCallback((l: Locale) => { setLocaleState(l); void props.store.set(KEYS.locale, l); }, [props.store]);
 
-  const value: PartnerValue = { api, nav: props.nav, auth, store: props.store, me, meError, refreshMe, activeRole, switchRole, interfaces };
+  const value: PartnerValue = { pickFile: props.pickFile ?? defaultPickFile, api, nav: props.nav, auth, store: props.store, me, meError, refreshMe, activeRole, switchRole, interfaces };
   return (
     <LocaleProvider locale={locale} setLocale={setLocale} scheme={props.scheme}>
       <Ctx.Provider value={value}>{props.children}</Ctx.Provider>

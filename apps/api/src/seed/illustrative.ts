@@ -56,7 +56,7 @@ export async function seedIllustrative(db: DbClient) {
   type Req = [string, number, 'RAW_EDIBLE' | 'AS_PURCHASED' | 'COOKED_NET', boolean?];
   const makeDish = async (o: {
     key: string; chef: string; en: string; ar: string; facets: string[]; publish: boolean; publicRecipe?: boolean;
-    reqs: Req[]; variants: Array<{ key: string; mode: 'EAT_NOW' | 'HEAT_AT_HOME' | 'COOK_AT_HOME'; labor: number; packaging: number; chefIngr: number | null; suppliers: boolean; lead: number; min: number; max: number; step?: number; portion?: number; en: string; ar: string }>;
+    reqs: Req[]; variants: Array<{ key: string; mode: 'EAT_NOW' | 'HEAT_AT_HOME' | 'COOK_AT_HOME'; labor: number; packaging: number; chefIngr: number | null; suppliers: boolean; lead: number; min: number; max: number; step?: number; portion?: number; units?: [number, number]; en: string; ar: string }>;
   }) => {
     const d = await db.query(`INSERT INTO dishes (chef_id, title_en, title_ar, description_en, description_ar) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
       [chefs[o.chef], o.en, o.ar, `Illustrative sample dish: ${o.en}.`, `طبق توضيحي للتجربة: ${o.ar}.`]);
@@ -80,9 +80,11 @@ export async function seedIllustrative(db: DbClient) {
     for (const v of o.variants) {
       const r = await db.query(
         `INSERT INTO offer_variants (dish_id, recipe_version_id, service_mode, labor_per_person_piastres, packaging_piastres, chef_ingredients_per_serving_piastres,
-           supplier_sourcing_allowed, lead_time_minutes, min_servings, max_servings, serving_step, portion_weight_grams, portion_weight_basis, safety_instructions_en, safety_instructions_ar)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
-        [dishId, rvId, v.mode, v.labor, v.packaging, v.chefIngr, v.suppliers, v.lead, v.min, v.max, v.step ?? 1, v.portion ?? null, v.portion ? 'COOKED_NET' : null, v.en, v.ar],
+           supplier_sourcing_allowed, lead_time_minutes, min_servings, max_servings, serving_step, portion_weight_grams, portion_weight_basis, safety_instructions_en, safety_instructions_ar,
+           base_work_units, work_units_per_serving)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
+        [dishId, rvId, v.mode, v.labor, v.packaging, v.chefIngr, v.suppliers, v.lead, v.min, v.max, v.step ?? 1, v.portion ?? null, v.portion ? 'COOKED_NET' : null, v.en, v.ar,
+          v.units?.[0] ?? 2, v.units?.[1] ?? 2],
       );
       offers[v.key] = r.rows[0].id;
     }
@@ -135,6 +137,33 @@ export async function seedIllustrative(db: DbClient) {
     reqs: [['chicken-raw', 180, 'RAW_EDIBLE'], ['yogurt', 30, 'AS_PURCHASED'], ['garlic', 5, 'RAW_EDIBLE']],
     variants: [{ key: 'tawook-eat', mode: 'EAT_NOW', labor: 1200, packaging: 300, chefIngr: 7000, suppliers: true, lead: 90, min: 1, max: 8, ...eatNow }],
   });
+
+  // Illustrative capacity: two service windows a day for chef A over the booking window
+  // (Cairo local 12:00-15:00 and 18:00-21:00), 40 work units each. Chef B has none.
+  await db.query(
+    `INSERT INTO chef_capacity_slots (chef_id, starts_at, ends_at, total_work_units)
+     SELECT $1, (d + w.s) AT TIME ZONE 'Africa/Cairo', (d + w.e) AT TIME ZONE 'Africa/Cairo', 40
+     FROM generate_series(date_trunc('day', now() AT TIME ZONE 'Africa/Cairo'), date_trunc('day', now() AT TIME ZONE 'Africa/Cairo') + interval '6 days', interval '1 day') d
+     CROSS JOIN (VALUES (interval '12 hours', interval '15 hours'), (interval '18 hours', interval '21 hours')) w(s, e)
+     WHERE (d + w.s) AT TIME ZONE 'Africa/Cairo' > now() + interval '3 hours'`,
+    [chefs.A],
+  );
+
+  // Illustrative delivery tariffs between public areas. Distance bands are an OPEN founder decision;
+  // these values only exercise the rules (final 20-75 EGP, ingredient trip 20 EGP when eligible).
+  const tariff = async (kind: 'FINAL' | 'INGREDIENT', from: string, to: string, fee: number, eligible = true, maxStops = 1) =>
+    db.query(`INSERT INTO delivery_tariffs (kind, from_area_id, to_area_id, fee_piastres, eligible, max_stops, is_illustrative) VALUES ($1,$2,$3,$4,$5,$6,true)`,
+      [kind, area[from], area[to], fee, eligible, maxStops]);
+  const pairs: Array<[string, string, number]> = [
+    ['maadi', 'maadi', 2500], ['nasr-city', 'nasr-city', 2500], ['heliopolis', 'heliopolis', 2500],
+    ['maadi', 'nasr-city', 4500], ['nasr-city', 'maadi', 4500], ['maadi', 'heliopolis', 5500], ['heliopolis', 'maadi', 5500],
+    ['nasr-city', 'heliopolis', 3000], ['heliopolis', 'nasr-city', 3000],
+  ];
+  for (const [f, t, fee] of pairs) await tariff('FINAL', f, t, fee);
+  for (const [f, t] of [['maadi', 'maadi'], ['nasr-city', 'nasr-city'], ['nasr-city', 'maadi'], ['maadi', 'nasr-city'], ['heliopolis', 'heliopolis']] as const) {
+    await tariff('INGREDIENT', f, t, 2000, true, 3);
+  }
+  await tariff('INGREDIENT', 'maadi', 'heliopolis', 0, false);
 
   // Illustrative supplier.
   const supOwner = await user(db, SAMPLE_SUBJECTS.supplier, 'Sample Grocer (sample)');

@@ -19,7 +19,8 @@ export const PartnerKindSchema = z.enum(['CHEF', 'SUPPLIER', 'COURIER']);
 export const EquipmentSchema = z.enum(['INSULATED_BAG', 'COLD_BOX', 'BICYCLE', 'MOTORCYCLE', 'CAR']);
 export const EvidenceTypeSchema = z.enum(['NATIONAL_ID', 'KITCHEN_PHOTO', 'FOOD_HANDLER_CERTIFICATE', 'COMMERCIAL_REGISTRATION', 'TAX_CARD', 'DRIVING_LICENSE', 'VEHICLE_LICENSE', 'OTHER']);
 export const EvidenceContentTypeSchema = z.enum(['application/pdf', 'image/jpeg', 'image/png']);
-export const MAX_EVIDENCE_BYTES = 10 * 1024 * 1024;
+/** Kept under the 4.5 MB request limit of serverless hosting. Photos are compressed on device. */
+export const MAX_EVIDENCE_BYTES = 4 * 1024 * 1024;
 
 export const ErrorEnvelope = z.object({
   error: z.object({
@@ -135,6 +136,9 @@ export const OfferDetail = z.object({
   siblingVariants: z.array(z.object({ offerId: Uuid, serviceMode: ServiceModeSchema })),
   cuisines: z.array(z.object({ slug: z.string(), label: LocalizedText })),
   illustrative: z.boolean(),
+  /** H04: whether the kitchen has capacity in the booking window. Never a guarantee of timing. */
+  availability: z.enum(['AVAILABLE', 'FULLY_BOOKED', 'KITCHEN_CLOSED']),
+  slots: z.array(z.object({ slotId: Uuid, startsAt: z.string(), endsAt: z.string(), maxServings: z.number().int() })),
 });
 export type OfferDetail = z.infer<typeof OfferDetail>;
 
@@ -243,13 +247,18 @@ export const RegisterEvidenceRequest = z.object({
 }).strict();
 export const EvidenceRegistered = z.object({
   evidenceId: Uuid,
-  upload: z.object({ status: z.enum(['STORAGE_DISABLED', 'DEV_METADATA_ONLY']) }),
+  /** PENDING_UPLOAD: send the file bytes with PUT to uploadPath. Other states accept no file. */
+  upload: z.object({ status: z.enum(['STORAGE_DISABLED', 'DEV_METADATA_ONLY', 'PENDING_UPLOAD']), uploadPath: z.string().nullable() }),
 });
+export const EvidenceUploaded = z.object({ evidenceId: Uuid, fileState: z.literal('UPLOADED'), byteSize: z.number().int(), scanState: z.enum(['NOT_SCANNED', 'CLEAN', 'INFECTED']) });
+export const EvidenceLink = z.object({ url: z.string(), expiresAt: z.string() });
 
 /** Ops view: evidence metadata only. Object keys and files are never returned. */
 export const EvidenceMetadata = z.object({
   evidenceId: Uuid, evidenceType: EvidenceTypeSchema, contentType: z.string(), byteSize: z.number().int(),
   expiresOn: z.string().nullable(), reviewState: z.enum(['PENDING_REVIEW', 'ACCEPTED', 'REJECTED']), createdAt: z.string(),
+  fileState: z.enum(['STORAGE_DISABLED', 'DEV_METADATA_ONLY', 'PENDING_UPLOAD', 'UPLOADED', 'REJECTED_FILE']),
+  scanState: z.enum(['NOT_SCANNED', 'CLEAN', 'INFECTED']),
 });
 export const OpsApplicationDetail = PartnerApplicationDto.extend({
   applicant: z.object({ userId: Uuid, displayName: z.string().nullable() }),

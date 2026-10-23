@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { SignJWT, exportJWK, generateKeyPair, createLocalJWKSet } from 'jose';
 import pg from 'pg';
 import { describe, expect, it } from 'vitest';
-import { MIGRATIONS_DIR, migrateDown, migrateUp } from '../src/migrator';
+import { MIGRATIONS_DIR, loadMigrations, migrateDown, migrateUp } from '../src/migrator';
 import { ClerkIdentityProvider, DevStubIdentityProvider, OidcIdentityProvider } from '../src/identity/provider';
 import { TEST_DB_ADMIN_URL, createDisposableDatabase, createTestContext } from '../src/testing';
 import { call } from './helpers';
@@ -15,14 +15,16 @@ describe.skipIf(!TEST_DB_ADMIN_URL)('migrations in a disposable database', () =>
     const c = new pg.Client({ connectionString: db.url });
     await c.connect();
     try {
-      expect(await migrateUp(c)).toEqual(['0001_identity_partners_platform', '0002_catalog']);
+      const ids = loadMigrations().map((m) => m.id);
+      expect(ids.length).toBeGreaterThanOrEqual(5);
+      expect(await migrateUp(c)).toEqual(ids);
       expect(await migrateUp(c)).toEqual([]);
-      expect(await migrateDown(c, 2)).toEqual(['0002_catalog', '0001_identity_partners_platform']);
+      expect(await migrateDown(c, ids.length)).toEqual([...ids].reverse());
       const left = await c.query(`SELECT count(*)::int AS n FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations'`);
       expect(left.rows[0].n).toBe(0);
       const fns = await c.query(`SELECT count(*)::int AS n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public'`);
       expect(fns.rows[0].n).toBe(0);
-      expect(await migrateUp(c)).toHaveLength(2);
+      expect(await migrateUp(c)).toHaveLength(ids.length);
     } finally {
       await c.end();
       await db.drop();

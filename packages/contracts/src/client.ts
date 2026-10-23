@@ -129,7 +129,28 @@ export function createApiClient(opts: ApiClientOptions) {
     registerEvidence: (applicationId: string, body: z.input<typeof S.RegisterEvidenceRequest>, key?: string) =>
       request(S.EvidenceRegistered, 'POST', `/v1/partner-applications/${applicationId}/evidence`, body, key),
 
+    /** Uploads the raw file bytes for a PENDING_UPLOAD evidence record (max 4 MB). */
+    uploadEvidenceFile: async (uploadPath: string, bytes: Uint8Array | Blob, contentType: string) => {
+      const token = await opts.getToken?.();
+      let res: Awaited<ReturnType<FetchLike>>;
+      try {
+        res = await doFetch(`${base}${uploadPath}`, {
+          method: 'PUT',
+          headers: { 'content-type': contentType, accept: 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+          body: bytes as unknown as string,
+        });
+      } catch { throw new NetworkError(); }
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        const env = S.ErrorEnvelope.safeParse(json);
+        throw env.success ? new ApiError(res.status, env.data.error.code, env.data.error.message, env.data.error.correlationId, env.data.error.details)
+          : new ApiError(res.status, 'UNEXPECTED_RESPONSE', 'Unexpected error response', null);
+      }
+      return S.EvidenceUploaded.parse(json);
+    },
+
     // Operations
+    opsEvidenceLink: (evidenceId: string) => request(S.EvidenceLink, 'POST', `/v1/ops/partner-evidence/${evidenceId}/link`, {}),
     opsApplications: (status: 'SUBMITTED' | 'APPROVED' | 'REJECTED' = 'SUBMITTED') =>
       request(S.PartnerApplicationList, 'GET', `/v1/ops/partner-applications${qs({ status })}`),
     opsApplication: (id: string) => request(S.OpsApplicationDetail, 'GET', `/v1/ops/partner-applications/${id}`),

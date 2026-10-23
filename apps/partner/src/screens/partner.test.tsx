@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ApiClient, Me } from '@lahloba/contracts';
 import { AuthContextProvider, memoryStore, type AuthPort } from '@lahloba/app-shell';
+import type { PickFile } from '../filePicker';
 import { PartnerProviders, type Nav } from '../PartnerContext';
 import { ApplyScreen } from './ApplyScreen';
 import { RolesScreen } from './RolesScreen';
@@ -18,11 +19,11 @@ const fakeAuth = (status: AuthPort['status'], provider: AuthPort['provider'] = '
   startCode: async () => ({ error: null }), verifyCode: async () => ({ error: null }), signOut: async () => undefined,
 });
 
-function setup(api: Partial<ApiClient>, ui: React.ReactNode, opts: { signedIn?: boolean; provider?: AuthPort['provider'] } = {}) {
+function setup(api: Partial<ApiClient>, ui: React.ReactNode, opts: { signedIn?: boolean; provider?: AuthPort['provider']; pickFile?: PickFile } = {}) {
   const nav: Nav = { push: vi.fn(), replace: vi.fn(), back: vi.fn() };
   render(
     <AuthContextProvider value={fakeAuth(opts.signedIn === false ? 'signedOut' : 'signedIn', opts.provider)}>
-      <PartnerProviders apiUrl="http://x" nav={nav} store={memoryStore()} apiFactory={() => api as ApiClient}>{ui}</PartnerProviders>
+      <PartnerProviders apiUrl="http://x" nav={nav} store={memoryStore()} apiFactory={() => api as ApiClient} pickFile={opts.pickFile}>{ui}</PartnerProviders>
     </AuthContextProvider>,
   );
   return nav;
@@ -83,21 +84,50 @@ describe('partner application form', () => {
     expect(calls[0]![0]).toMatchObject({ kind: 'CHEF', chef: { publicName: 'My Kitchen', serviceAreaIds: [maadi.id], kitchenAddress: { addressText: '12 Example Street', areaId: maadi.id } } });
   });
 
-  it('after submission explains that documents are only references (no upload yet)', async () => {
-    const registerEvidence = vi.fn(async () => ({ evidenceId: id(30), upload: { status: 'DEV_METADATA_ONLY' as const } }));
+  const submittedCourier = async (api: Partial<ApiClient>, pickFile: PickFile) => {
     setup({
-      me: async () => me([]), areas: async () => ({ items: [] }), registerEvidence,
+      me: async () => me([]), areas: async () => ({ items: [] }),
       applyAsPartner: async () => ({ id: id(40), kind: 'COURIER', subjectId: id(41), status: 'SUBMITTED', submittedAt: '', decidedAt: null, decisionReason: null, permittedNextStep: null, version: 1, evidenceCount: 0 }),
-    } as Partial<ApiClient>, <ApplyScreen kind="COURIER" />);
+      ...api,
+    } as Partial<ApiClient>, <ApplyScreen kind="COURIER" />, { pickFile });
     await screen.findByTestId('apply-COURIER');
     fireEvent.change(screen.getByTestId('name'), { target: { value: 'Rider' } });
     fireEvent.click(screen.getByTestId('equipment-BICYCLE'));
     await act(async () => { fireEvent.click(screen.getByTestId('submit-application')); });
     expect(await screen.findByTestId('application-submitted')).toBeTruthy();
-    expect(screen.getByTestId('apply-done').textContent).toMatch(/no file is uploaded/);
-    await act(async () => { fireEvent.click(screen.getByTestId('add-evidence')); });
-    expect(registerEvidence).toHaveBeenCalledWith(id(40), expect.objectContaining({ evidenceType: 'DRIVING_LICENSE' }));
-    expect(screen.getByTestId('evidence-count').textContent).toMatch(/1/);
+  };
+  const pdf = { bytes: Uint8Array.from([0x25, 0x50, 0x44, 0x46, 0x2d]), contentType: 'application/pdf' as const, name: 'licence.pdf' };
+
+  it('after submission uploads each document privately and shows its state', async () => {
+    const registerEvidence = vi.fn(async () => ({ evidenceId: id(30), upload: { status: 'PENDING_UPLOAD' as const, uploadPath: `/v1/partner-evidence/${id(30)}/content` } }));
+    const uploadEvidenceFile = vi.fn(async () => ({ evidenceId: id(30), fileState: 'UPLOADED' as const, byteSize: 5, scanState: 'NOT_SCANNED' as const }));
+    const pick = vi.fn(async () => pdf);
+    await submittedCourier({ registerEvidence, uploadEvidenceFile }, pick);
+    expect(screen.getByTestId('doc-DRIVING_LICENSE-status').textContent).toMatch(/Not added/);
+    await act(async () => { fireEvent.click(screen.getByTestId('doc-DRIVING_LICENSE-file')); });
+    expect(pick).toHaveBeenCalledWith('document');
+    expect(registerEvidence).toHaveBeenCalledWith(id(40), { evidenceType: 'DRIVING_LICENSE', contentType: 'application/pdf', byteSize: 5 }, expect.any(String));
+    expect(uploadEvidenceFile).toHaveBeenCalledWith(`/v1/partner-evidence/${id(30)}/content`, pdf.bytes, 'application/pdf');
+    expect(screen.getByTestId('doc-DRIVING_LICENSE-status').textContent).toMatch(/Uploaded/);
+    expect(screen.queryByTestId('evidence-storage-off')).toBeNull();
+  });
+
+  it('explains picker and server rejections, and says plainly when file storage is off', async () => {
+    const registerEvidence = vi.fn(async () => ({ evidenceId: id(31), upload: { status: 'DEV_METADATA_ONLY' as const, uploadPath: null } }));
+    const uploadEvidenceFile = vi.fn();
+    let next: () => Promise<typeof pdf | null> = async () => { throw Object.assign(new Error(), { code: 'FILE_TOO_LARGE' }); };
+    await submittedCourier({ registerEvidence, uploadEvidenceFile } as Partial<ApiClient>, () => next());
+    await act(async () => { fireEvent.click(screen.getByTestId('doc-NATIONAL_ID-camera')); });
+    expect(screen.getByTestId('doc-NATIONAL_ID-error').textContent).toMatch(/larger than 4 MB/);
+    expect(registerEvidence).not.toHaveBeenCalled();
+    next = async () => null; // cancelled: nothing happens
+    await act(async () => { fireEvent.click(screen.getByTestId('doc-VEHICLE_LICENSE-photo')); });
+    expect(registerEvidence).not.toHaveBeenCalled();
+    next = async () => pdf;
+    await act(async () => { fireEvent.click(screen.getByTestId('doc-NATIONAL_ID-file')); });
+    expect(uploadEvidenceFile).not.toHaveBeenCalled();
+    expect(screen.getByTestId('evidence-storage-off').textContent).toMatch(/not kept/);
+    expect(screen.queryByTestId('doc-NATIONAL_ID-error')).toBeNull();
   });
 });
 

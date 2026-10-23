@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./tokens": "./src/tokens.ts"
+    "./tokens": "./src/tokens.ts",
+    "./brand-art": "./src/brand/art.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

@@ -66,3 +66,11 @@ export function allKeys(): MessageKey[] {
 }
 
 export { en, ar };
+
+/** "Sat 12:00–15:00" in Cairo time, Western digits in both languages (brand rule). */
+export function formatSlot(startsAt: string, endsAt: string, locale: Locale): string {
+  const tag = locale === 'ar' ? 'ar-EG-u-nu-latn' : 'en-GB';
+  const day = new Intl.DateTimeFormat(tag, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Africa/Cairo' }).format(new Date(startsAt));
+  const time = (iso: string) => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Africa/Cairo' }).format(new Date(iso));
+  return `${day} ${time(startsAt)}–${time(endsAt)}`;
+}

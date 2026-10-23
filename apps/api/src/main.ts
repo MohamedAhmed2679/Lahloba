@@ -10,7 +10,7 @@ const app = await buildApp({
   config,
   pool,
   identity: createIdentityProvider(config),
-  evidence: createEvidenceStorage(config.evidenceStorage),
+  evidence: createEvidenceStorage(config.evidenceStorage, { localDir: config.storage.localDir ?? undefined }),
   logger: true,
 });
 app.log.info({ config: describeConfig(config) }, 'starting Lahloba API');

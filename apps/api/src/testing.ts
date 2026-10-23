@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import pg from 'pg';
 import type { ServerConfig } from '@lahloba/config';
 import { buildApp } from './app';
@@ -36,7 +38,7 @@ export async function createDisposableDatabase() {
   };
 }
 
-export async function createTestContext(opts: { seed?: boolean; evidence?: 'disabled' | 'dev-metadata-only'; rateLimitScale?: number } = {}) {
+export async function createTestContext(opts: { seed?: boolean; evidence?: ServerConfig['evidenceStorage']; rateLimitScale?: number } = {}) {
   const db = await createDisposableDatabase();
   const pool = createPool(db.url, 20);
   const c = await pool.connect();
@@ -45,11 +47,14 @@ export async function createTestContext(opts: { seed?: boolean; evidence?: 'disa
   const secret = 'test-only-secret-'.padEnd(40, 'x');
   const config: ServerConfig = {
     env: 'test', databaseUrl: db.url, apiHost: '127.0.0.1', apiPort: 0, corsOrigins: [],
-    identity: { kind: 'dev-stub', signingSecret: secret }, evidenceStorage: opts.evidence ?? 'dev-metadata-only',
+    identity: { kind: 'dev-stub', signingSecret: secret }, evidenceStorage: opts.evidence ?? 'local-disk',
+    storage: { localDir: join(tmpdir(), `lahloba-evidence-${db.name}`), signingSecret: 'test-storage-secret-'.padEnd(40, 'y') },
+    payments: { provider: 'simulator', webhookSecret: 'test-payments-secret-'.padEnd(40, 'z') },
+    publicApiUrl: null,
     worker: { pollIntervalMs: 100, maxAttempts: 3 },
   };
   const identity = new DevStubIdentityProvider(secret);
-  const app = await buildApp({ config, pool, identity, evidence: createEvidenceStorage(config.evidenceStorage), rateLimitScale: opts.rateLimitScale ?? 100 });
+  const app = await buildApp({ config, pool, identity, evidence: createEvidenceStorage(config.evidenceStorage, { localDir: config.storage.localDir ?? undefined }), rateLimitScale: opts.rateLimitScale ?? 100 });
   await app.ready();
   let n = 0;
   return {

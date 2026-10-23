@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ApiError } from '@lahloba/contracts';
 import { laborTotal } from '@lahloba/domain';
-import { formatMoney, formatQuantity, pickLocalized } from '@lahloba/i18n';
+import { formatMoney, formatQuantity, formatSlot, pickLocalized } from '@lahloba/i18n';
 import {
   Button, Card, Chip, EmptyState, ErrorState, IllustrativeBadge, IngredientLineView, LoadingState, Notice, Row, Screen,
   ServingStepper, Text, useLocale,
@@ -66,6 +66,18 @@ export function OfferDetailScreen(props: { offerId: string }) {
         </Text>
       ) : null}
       <Text variant="caption" muted>{t('results.leadTime', { minutes: o.leadTimeMinutes })}</Text>
+      {o.availability === 'FULLY_BOOKED' ? <Notice tone="warning" testID="offer-fully-booked">{t('offer.fullyBooked')}</Notice>
+        : o.availability === 'KITCHEN_CLOSED' ? <Notice tone="warning" testID="offer-kitchen-closed">{t('offer.kitchenClosed')}</Notice>
+        : (
+          <Card testID="offer-slots">
+            <Text variant="label">{t('offer.nextTimes')}</Text>
+            {o.slots.slice(0, 3).map((s) => (
+              <Text key={s.slotId} variant="caption" testID="offer-slot">{t('offer.slotUpTo', { when: formatSlot(s.startsAt, s.endsAt, locale), count: s.maxServings })}</Text>
+            ))}
+            {o.slots.length > 0 && !o.slots.some((s) => s.maxServings >= n)
+              ? <Text tone="warning" variant="caption" testID="offer-slot-too-small">⚠ {t('offer.slotTooSmall', { count: n })}</Text> : null}
+          </Card>
+        )}
 
       <Text variant="title" role="header">{t('offer.ingredients')}</Text>
       {o.ingredients.map((i) => (

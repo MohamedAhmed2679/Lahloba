@@ -1,15 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError, newIdempotencyKey, type Area, type CreatePartnerApplication, type PartnerApplicationDto } from '@lahloba/contracts';
 import { pickLocalized } from '@lahloba/i18n';
-import { Button, Chip, Notice, Row, Screen, Text, TextField, useLocale } from '@lahloba/ui';
+import { Button, Card, Chip, Notice, Row, Screen, StatusBadge, Text, TextField, useLocale } from '@lahloba/ui';
+import type { FileSource } from '../filePicker';
 import { usePartner } from '../PartnerContext';
 
 type Kind = 'CHEF' | 'SUPPLIER' | 'COURIER';
 const EQUIPMENT = ['INSULATED_BAG', 'COLD_BOX', 'BICYCLE', 'MOTORCYCLE', 'CAR'] as const;
+type DocType = 'NATIONAL_ID' | 'KITCHEN_PHOTO' | 'FOOD_HANDLER_CERTIFICATE' | 'COMMERCIAL_REGISTRATION' | 'TAX_CARD' | 'DRIVING_LICENSE' | 'VEHICLE_LICENSE';
+const DOCS: Record<Kind, DocType[]> = {
+  CHEF: ['NATIONAL_ID', 'KITCHEN_PHOTO', 'FOOD_HANDLER_CERTIFICATE'],
+  SUPPLIER: ['COMMERCIAL_REGISTRATION', 'TAX_CARD', 'NATIONAL_ID'],
+  COURIER: ['NATIONAL_ID', 'DRIVING_LICENSE', 'VEHICLE_LICENSE'],
+};
+type DocState = { state: 'uploading' | 'uploaded' | 'referenceOnly' | 'failed'; error?: string };
+const KNOWN_ERRORS = ['UNSUPPORTED_FILE', 'FILE_TOO_LARGE', 'FILE_EMPTY', 'PERMISSION_DENIED', 'FILE_TYPE_MISMATCH', 'FILE_CORRUPT'] as const;
 
 /** H01 / S01 / D01 application forms with manual address entry (no map dependency). */
 export function ApplyScreen(props: { kind: Kind }) {
-  const { api, refreshMe, nav } = usePartner();
+  const { api, refreshMe, nav, pickFile } = usePartner();
   const { t, locale } = useLocale();
   const [areas, setAreas] = useState<Area[]>([]);
   const [name, setName] = useState('');
@@ -22,7 +31,7 @@ export function ApplyScreen(props: { kind: Kind }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState<PartnerApplicationDto | null>(null);
-  const [evidenceCount, setEvidenceCount] = useState(0);
+  const [docs, setDocs] = useState<Partial<Record<DocType, DocState>>>({});
   // One idempotency key per form instance: a double tap or retry cannot create two applications.
   const key = useRef(newIdempotencyKey());
 
@@ -70,14 +79,28 @@ export function ApplyScreen(props: { kind: Kind }) {
     }
   };
 
-  const addEvidence = async () => {
+  /** Pick → register the document slot → upload the bytes privately. Each step is explained if it fails. */
+  const addDocument = async (type: DocType, source: FileSource) => {
     if (!submitted) return;
-    // Metadata reference only — no file is uploaded until the private storage adapter exists.
-    await api.registerEvidence(submitted.id, {
-      evidenceType: props.kind === 'COURIER' ? 'DRIVING_LICENSE' : props.kind === 'SUPPLIER' ? 'COMMERCIAL_REGISTRATION' : 'NATIONAL_ID',
-      contentType: 'application/pdf', byteSize: 1,
-    });
-    setEvidenceCount((n) => n + 1);
+    const set = (v: DocState) => setDocs((d) => ({ ...d, [type]: v }));
+    const errorText = (code: string | undefined) =>
+      code && (KNOWN_ERRORS as readonly string[]).includes(code) ? t(`partner.evidence.err.${code as (typeof KNOWN_ERRORS)[number]}` as const) : t('common.error.generic');
+    let file;
+    try {
+      file = await pickFile(source);
+    } catch (e) {
+      return set({ state: 'failed', error: errorText((e as { code?: string }).code) });
+    }
+    if (!file) return; // cancelled: keep whatever was there
+    set({ state: 'uploading' });
+    try {
+      const reg = await api.registerEvidence(submitted.id, { evidenceType: type, contentType: file.contentType, byteSize: file.bytes.length }, newIdempotencyKey());
+      if (reg.upload.status !== 'PENDING_UPLOAD' || !reg.upload.uploadPath) return set({ state: 'referenceOnly' });
+      await api.uploadEvidenceFile(reg.upload.uploadPath, file.bytes, file.contentType);
+      set({ state: 'uploaded' });
+    } catch (e) {
+      set({ state: 'failed', error: errorText(e instanceof ApiError ? e.code : undefined) });
+    }
   };
 
   const roleLabel = t(`partner.role.${props.kind}` as const);
@@ -86,10 +109,32 @@ export function ApplyScreen(props: { kind: Kind }) {
       <Screen testID="apply-done">
         <Text variant="display" role="header">{t('partner.applyAs', { role: roleLabel })}</Text>
         <Notice testID="application-submitted">{t('partner.applicationSubmitted')}</Notice>
-        <Text variant="title">{t('partner.evidence')}</Text>
-        <Notice tone="warning">{t('partner.evidenceDisabled')}</Notice>
-        <Button variant="secondary" label={t('partner.addEvidence')} onPress={addEvidence} testID="add-evidence" />
-        {evidenceCount ? <Text testID="evidence-count">{t('partner.evidenceAdded', { count: evidenceCount })}</Text> : null}
+        <Text variant="title" role="header">{t('partner.evidence')}</Text>
+        <Text muted>{t('partner.evidenceIntro')}</Text>
+        {Object.values(docs).some((d) => d?.state === 'referenceOnly') ? <Notice tone="warning" testID="evidence-storage-off">{t('partner.evidenceDisabled')}</Notice> : null}
+        {DOCS[props.kind].map((type) => {
+          const d = docs[type];
+          const badge = !d ? { status: 'pending' as const, label: t('partner.evidence.notAdded') }
+            : d.state === 'uploading' ? { status: 'progress' as const, label: t('partner.evidence.uploading') }
+            : d.state === 'uploaded' ? { status: 'confirmed' as const, label: t('partner.evidence.uploaded') }
+            : d.state === 'referenceOnly' ? { status: 'pending' as const, label: t('partner.evidence.referenceOnly') }
+            : { status: 'failed' as const, label: t('partner.evidence.failed') };
+          const busyDoc = d?.state === 'uploading';
+          return (
+            <Card key={type} testID={`doc-${type}`}>
+              <Row>
+                <Text variant="label" style={{ flex: 1 }}>{t(`evidenceType.${type}` as const)}</Text>
+                <StatusBadge status={badge.status} label={badge.label} testID={`doc-${type}-status`} />
+              </Row>
+              {d?.error ? <Text tone="danger" variant="caption" testID={`doc-${type}-error`}>⚠ {d.error}</Text> : null}
+              <Row wrap>
+                <Button variant="secondary" label={t('partner.evidence.takePhoto')} disabled={busyDoc} onPress={() => addDocument(type, 'camera')} testID={`doc-${type}-camera`} />
+                <Button variant="tertiary" label={t('partner.evidence.choosePhoto')} disabled={busyDoc} onPress={() => addDocument(type, 'photo')} testID={`doc-${type}-photo`} />
+                <Button variant="tertiary" label={t('partner.evidence.chooseFile')} disabled={busyDoc} onPress={() => addDocument(type, 'document')} testID={`doc-${type}-file`} />
+              </Row>
+            </Card>
+          );
+        })}
         <Button label={t('common.back')} onPress={() => nav.replace('/roles')} />
       </Screen>
     );

@@ -80,13 +80,13 @@ export const INGREDIENTS: IngredientSeed[] = [
   { slug: 'spice-mix', en: 'House spice mix', ar: 'خلطة بهارات', unit: 'g', status: 'UNKNOWN' },
 ];
 
-export interface AreaSeed { slug: string; en: string; ar: string; status: 'ACTIVE' | 'COMING_SOON'; physical: boolean }
+export interface AreaSeed { slug: string; en: string; ar: string; status: 'ACTIVE' | 'COMING_SOON'; physical: boolean; lat: number; lng: number }
 export const AREAS: AreaSeed[] = [
-  { slug: 'maadi', en: 'Maadi', ar: 'المعادي', status: 'ACTIVE', physical: true },
-  { slug: 'nasr-city', en: 'Nasr City', ar: 'مدينة نصر', status: 'ACTIVE', physical: true },
-  { slug: 'heliopolis', en: 'Heliopolis', ar: 'مصر الجديدة', status: 'ACTIVE', physical: true },
-  { slug: 'zamalek', en: 'Zamalek', ar: 'الزمالك', status: 'COMING_SOON', physical: false },
-  { slug: 'sixth-of-october', en: '6th of October', ar: '٦ أكتوبر', status: 'COMING_SOON', physical: false },
+  { slug: 'maadi', en: 'Maadi', ar: 'المعادي', status: 'ACTIVE', physical: true, lat: 29.9602, lng: 31.2569 },
+  { slug: 'nasr-city', en: 'Nasr City', ar: 'مدينة نصر', status: 'ACTIVE', physical: true, lat: 30.0566, lng: 31.3301 },
+  { slug: 'heliopolis', en: 'Heliopolis', ar: 'مصر الجديدة', status: 'ACTIVE', physical: true, lat: 30.0911, lng: 31.3225 },
+  { slug: 'zamalek', en: 'Zamalek', ar: 'الزمالك', status: 'COMING_SOON', physical: false, lat: 30.0609, lng: 31.2193 },
+  { slug: 'sixth-of-october', en: '6th of October', ar: '٦ أكتوبر', status: 'COMING_SOON', physical: false, lat: 29.9381, lng: 30.9206 },
 ];
 
 export type Ids = Record<string, string>;
@@ -99,8 +99,8 @@ export async function seedReference(db: DbClient, areas: AreaSeed[] = AREAS) {
   let order = 0;
   for (const a of areas) {
     const r = await db.query(
-      `INSERT INTO service_areas (slug, label_en, label_ar, status, physical_ordering_enabled, sort_order) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-      [a.slug, a.en, a.ar, a.status, a.physical, order++],
+      `INSERT INTO service_areas (slug, label_en, label_ar, status, physical_ordering_enabled, sort_order, latitude, longitude) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+      [a.slug, a.en, a.ar, a.status, a.physical, order++, a.lat, a.lng],
     );
     area[a.slug] = r.rows[0].id;
   }
