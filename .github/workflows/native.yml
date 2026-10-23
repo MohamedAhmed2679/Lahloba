@@ -44,6 +44,11 @@ jobs:
         with: { node-version: 22.22.0, cache: pnpm }
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: "17" }
+      - name: Free disk space (emulator image + NDK + Gradle need ~25 GB)
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift /usr/local/lib/node_modules /opt/hostedtoolcache/CodeQL /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft || true
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
+          df -h / | tail -1
       - run: pnpm install --frozen-lockfile
       - name: Android SDK components (NDK, emulator image) with retries
         run: |

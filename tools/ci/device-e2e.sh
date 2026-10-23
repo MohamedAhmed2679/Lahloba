@@ -30,6 +30,11 @@ try:
 except Exception as e:
     msgs.append(f'no junit report ({e})')
 lines = open(log, errors='replace').read().splitlines()
+import glob, os
+debug = sorted(glob.glob(os.path.expanduser('~/.maestro/tests/*/maestro.log')))
+if debug:
+    dl = open(debug[-1], errors='replace').read().splitlines()
+    lines += ['--- maestro.log ---'] + [l for l in dl if re.search(r'(Exception|Error|error|Caused by|FAILED|failed)', l)][:60]
 interesting = [l for l in lines if re.search(r'(FAILED|Failed|❌|Assertion|not found|Unable|Error|Exception|timed out|Timeout)', l)][:60]
 print(f"::error title=Maestro {platform}/{app} failures::" + enc('\n'.join(msgs + ['--- log ---'] + interesting + ['--- tail ---'] + lines[-40:]))[:60000])
 PY

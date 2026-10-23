@@ -3,10 +3,21 @@
 appId: com.lahloba.customer
 name: Customer — checkout and sandbox payment
 ---
-- launchApp:
-    clearState: true
-    permissions:
-      location: deny
+# Android can pre-deny location; on iOS the system prompt is answered below if it appears.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - launchApp:
+          clearState: true
+          permissions:
+            location: deny
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp:
+          clearState: true
 - extendedWaitUntil:
     visible:
       id: "area-maadi"

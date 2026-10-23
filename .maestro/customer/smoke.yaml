@@ -2,10 +2,21 @@
 appId: com.lahloba.customer
 name: Customer — area, browse, dish, servings, Arabic, remembered area
 ---
-- launchApp:
-    clearState: true
-    permissions:
-      location: deny
+# Android can pre-deny location; on iOS the system prompt is answered below if it appears.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - launchApp:
+          clearState: true
+          permissions:
+            location: deny
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp:
+          clearState: true
 - extendedWaitUntil:
     visible:
       id: "area-maadi"
@@ -13,6 +24,9 @@ name: Customer — area, browse, dish, servings, Arabic, remembered area
 - takeScreenshot: customer-01-area
 - tapOn:
     id: "use-location"
+- tapOn:
+    text: "Don.t Allow"
+    optional: true
 - extendedWaitUntil:
     visible:
       id: "location-denied"
