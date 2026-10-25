@@ -1,7 +1,7 @@
 # Installable builds via Expo EAS (runs only when the EXPO_TOKEN secret exists).
 # Android: internal-distribution APK you can install on a phone. iOS: Simulator build only
 # (device/App Store builds need an Apple Developer account, not configured).
-# The app talks to the API at vars.LAHLOBA_PUBLIC_API_URL (set it to the deployed API URL).
+# The app talks to the staging API (override with vars.LAHLOBA_PUBLIC_API_URL / vars.CLERK_PUBLISHABLE_KEY).
 name: eas
 on:
   workflow_dispatch:
@@ -36,8 +36,8 @@ jobs:
         if: steps.gate.outputs.run == 'true'
         working-directory: apps/${{ matrix.app }}
         env:
-          API_URL: ${{ vars.LAHLOBA_PUBLIC_API_URL }}
-          CLERK_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY }}
+          API_URL: ${{ vars.LAHLOBA_PUBLIC_API_URL || 'https://lahloba-api.vercel.app' }}
+          CLERK_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY || 'pk_test_aHVtb3JvdXMtdGFwaXItNzI1LmNsZXJrLmFjY291bnRzLmRldiQ' }}
         run: |
           INIT=$(npx --yes eas-cli@25.3.0 init --non-interactive --force --json)
           echo "$INIT"
