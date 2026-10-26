@@ -1,0 +1,20 @@
+-- Rollback of 0004. DESTRUCTIVE: drops orders, payments, ledger and delivery data.
+DROP TABLE IF EXISTS ingredient_acceptances;
+DROP TABLE IF EXISTS delivery_stops;
+DROP TABLE IF EXISTS delivery_legs;
+DROP TRIGGER IF EXISTS ledger_balanced ON ledger_entries;
+DROP TABLE IF EXISTS ledger_entries;
+DROP FUNCTION IF EXISTS check_ledger_balanced();
+DROP TABLE IF EXISTS refunds;
+DROP TABLE IF EXISTS provider_events;
+DROP TABLE IF EXISTS payment_attempts;
+DROP TABLE IF EXISTS payment_allocations;
+DROP TABLE IF EXISTS supplier_suborders;
+DROP TABLE IF EXISTS inventory_reservations;
+DROP TABLE IF EXISTS order_events;
+ALTER TABLE capacity_reservations DROP CONSTRAINT IF EXISTS capacity_reservations_order_fk;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS quotes;
+DROP FUNCTION IF EXISTS guard_quote_snapshot();
+ALTER TABLE private_addresses DROP COLUMN IF EXISTS kind;
+ALTER TABLE private_addresses DROP COLUMN IF EXISTS label;

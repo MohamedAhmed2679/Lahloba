@@ -1,0 +1,136 @@
+# Customer ordering on device: sign in (dev stub, CI only), server price, place order,
+# SANDBOX payment (no real money), paid status. Runs against the API started on the runner.
+appId: com.lahloba.customer
+name: Customer — checkout and sandbox payment
+---
+# Android can pre-deny location; on iOS the system prompt is answered below if it appears.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - launchApp:
+          clearState: true
+          permissions:
+            location: deny
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp:
+          clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "area-maadi"
+    timeout: 90000
+- tapOn:
+    id: "area-maadi"
+- extendedWaitUntil:
+    visible:
+      id: "entry-EAT_NOW"
+    timeout: 30000
+- tapOn:
+    id: "entry-EAT_NOW"
+- extendedWaitUntil:
+    visible: ".*Molokhia with chicken.*"
+    timeout: 30000
+- tapOn: ".*Molokhia with chicken.*"
+- extendedWaitUntil:
+    visible:
+      id: "labour-line"
+    timeout: 30000
+- tapOn:
+    id: "servings-increase"
+- tapOn:
+    id: "servings-increase"
+- scrollUntilVisible:
+    element:
+      id: "source-CHEF"
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    id: "source-CHEF"
+- scrollUntilVisible:
+    element:
+      id: "compare-cta"
+    direction: DOWN
+    timeout: 60000
+- takeScreenshot: customer-06-order-block
+- tapOn:
+    id: "compare-cta"
+# Guests are asked to sign in before pricing.
+- extendedWaitUntil:
+    visible:
+      id: "auth-identifier"
+    timeout: 30000
+- tapOn:
+    id: "auth-identifier"
+- inputText: "maestro-customer"
+- tapOn:
+    id: "auth-title"
+- tapOn:
+    id: "auth-send"
+- extendedWaitUntil:
+    visible:
+      id: "auth-code"
+    timeout: 15000
+- tapOn:
+    id: "auth-code"
+- inputText: "123456"
+- tapOn:
+    id: "auth-title"
+- tapOn:
+    id: "auth-verify"
+- extendedWaitUntil:
+    visible:
+      id: "sandbox-banner"
+    timeout: 30000
+- tapOn:
+    id: "address-text"
+- inputText: "12 Road 9, Maadi"
+- tapOn:
+    id: "sandbox-banner"
+- scrollUntilVisible:
+    element:
+      id: "get-price"
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    id: "get-price"
+- extendedWaitUntil:
+    visible:
+      id: "quote-summary"
+    timeout: 30000
+# Smaller screens put the total below the fold.
+- scrollUntilVisible:
+    element:
+      id: "quote-total"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    text: ".*EGP 308.*"
+- takeScreenshot: customer-07-price-breakdown
+- scrollUntilVisible:
+    element:
+      id: "place-order"
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    id: "place-order"
+- extendedWaitUntil:
+    visible:
+      id: "pay-start"
+    timeout: 30000
+- takeScreenshot: customer-08-order-awaiting-payment
+- tapOn:
+    id: "pay-start"
+- extendedWaitUntil:
+    visible:
+      id: "pay-succeed"
+    timeout: 30000
+- takeScreenshot: customer-09-sandbox-payment
+- tapOn:
+    id: "pay-succeed"
+- extendedWaitUntil:
+    visible: ".*waiting for the cook.*"
+    timeout: 30000
+- takeScreenshot: customer-10-paid

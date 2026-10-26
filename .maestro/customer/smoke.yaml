@@ -1,0 +1,79 @@
+# Customer app smoke test on a real Android emulator / iOS Simulator (run by CI).
+appId: com.lahloba.customer
+name: Customer — area, browse, dish, servings, Arabic, remembered area
+---
+# Android can pre-deny location; on iOS the system prompt is answered below if it appears.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - launchApp:
+          clearState: true
+          permissions:
+            location: deny
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp:
+          clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "area-maadi"
+    timeout: 90000
+- takeScreenshot: customer-01-area
+- tapOn:
+    id: "use-location"
+- tapOn:
+    text: "Don.t Allow"
+    optional: true
+# iOS simulators may report location as unavailable instead of denied; both keep manual choice.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "location-denied"
+          timeout: 15000
+- assertVisible:
+    id: "area-maadi"
+- tapOn:
+    id: "area-maadi"
+- extendedWaitUntil:
+    visible:
+      id: "entry-EAT_NOW"
+    timeout: 30000
+- takeScreenshot: customer-02-home
+- tapOn:
+    id: "entry-EAT_NOW"
+- extendedWaitUntil:
+    visible: ".*Molokhia with chicken.*"
+    timeout: 30000
+- takeScreenshot: customer-03-results
+- tapOn: ".*Molokhia with chicken.*"
+- extendedWaitUntil:
+    visible:
+      id: "labour-line"
+    timeout: 30000
+- tapOn:
+    id: "servings-increase"
+- tapOn:
+    id: "servings-increase"
+- assertVisible:
+    text: ".*EGP 40 total.*"
+- takeScreenshot: customer-04-dish-4-servings
+# Relaunch without clearing state: the chosen area must be remembered.
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: "entry-EAT_NOW"
+    timeout: 60000
+- tapOn:
+    id: "language-switch"
+- extendedWaitUntil:
+    visible: ".*كُل الآن.*"
+    timeout: 15000
+- takeScreenshot: customer-05-home-arabic

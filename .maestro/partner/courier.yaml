@@ -1,0 +1,38 @@
+# Courier role: dev-stub sign-in (CI only), job board with map and privacy-preserving job cards.
+appId: com.lahloba.partner
+name: Partner — courier job board
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "auth-identifier"
+    timeout: 90000
+- tapOn:
+    id: "auth-identifier"
+- inputText: "sample-courier"
+- tapOn:
+    id: "auth-title"
+- tapOn:
+    id: "auth-send"
+- extendedWaitUntil:
+    visible:
+      id: "auth-code"
+    timeout: 15000
+- tapOn:
+    id: "auth-code"
+- inputText: "123456"
+- tapOn:
+    id: "auth-title"
+- tapOn:
+    id: "auth-verify"
+- extendedWaitUntil:
+    visible:
+      id: "switch-COURIER"
+    timeout: 30000
+- tapOn:
+    id: "switch-COURIER"
+- extendedWaitUntil:
+    visible: "Delivery jobs"
+    timeout: 30000
+- takeScreenshot: partner-06-courier-jobs

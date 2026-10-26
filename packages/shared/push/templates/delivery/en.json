@@ -1,6 +1,0 @@
-[
-  {"id":"NEW_TASK","priority":"high","title":"New {{task_type}} available!","body":"{{stop_count}} stops, {{payout}} EGP payout. Tap to accept."},
-  {"id":"STORE_READY","priority":"normal","title":"Store ready","body":"{{store_name}} has your pickup ready."},
-  {"id":"ALL_PICKED_UP","priority":"high","title":"All pickups done!","body":"Head to {{destination}} for delivery."},
-  {"id":"PAYOUT_COMPLETED","priority":"normal","title":"Payout received","body":"{{amount}} EGP deposited for period {{period}}."}
-]

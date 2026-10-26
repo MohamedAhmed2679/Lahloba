@@ -1,1 +1,5 @@
-{"compilerOptions":{"module":"commonjs","declaration":true,"emitDecoratorMetadata":true,"experimentalDecorators":true,"target":"ES2021","sourceMap":true,"outDir":"./dist","baseUrl":"./","skipLibCheck":true,"strictNullChecks":true,"noImplicitAny":true}}
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "types": ["node"] },
+  "include": ["src", "test"]
+}

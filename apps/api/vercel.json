@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "DATABASE_URL=${DATABASE_URL_UNPOOLED:-$DATABASE_URL} pnpm run db:migrate && DATABASE_URL=${DATABASE_URL_UNPOOLED:-$DATABASE_URL} pnpm run db:seed:staging && pnpm run build:vercel",
+  "outputDirectory": "public",
+  "functions": { "api/index.mjs": { "maxDuration": 30 } },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index.mjs" }],
+  "crons": [{ "path": "/v1/internal/sweep", "schedule": "0 3 * * *" }]
+}

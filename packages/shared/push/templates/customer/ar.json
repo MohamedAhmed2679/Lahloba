@@ -1,7 +1,0 @@
-[
-  {"id":"ORDER_CONFIRMED","title":"تم تأكيد الطلب","body":"طلبك #{{order_id}} تم تأكيده!"},
-  {"id":"STORE_READY_FOR_PICKUP","title":"جاهز للاستلام","body":"{{store_name}} جهّز المكونات."},
-  {"id":"INGREDIENTS_DELIVERED","title":"المكونات وصلت!","body":"{{chef_name}} بدأ الطبخ!"},
-  {"id":"MEAL_ON_THE_WAY","title":"في الطريق!","body":"الوصول خلال {{eta_min}} دقيقة."},
-  {"id":"DELIVERED","title":"تم التوصيل!","body":"بالهنا! متنساش تقيّم."}
-]

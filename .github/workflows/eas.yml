@@ -1,0 +1,49 @@
+# Installable builds via Expo EAS (runs only when the EXPO_TOKEN secret exists).
+# Android: internal-distribution APK you can install on a phone. iOS: Simulator build only
+# (device/App Store builds need an Apple Developer account, not configured).
+# The app talks to the staging API (override with vars.LAHLOBA_PUBLIC_API_URL / vars.CLERK_PUBLISHABLE_KEY).
+name: eas
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [customer, partner]
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Check for EXPO_TOKEN
+        id: gate
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then echo "EXPO_TOKEN secret not set; skipping EAS builds."; echo "run=false" >> "$GITHUB_OUTPUT"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v5
+        if: steps.gate.outputs.run == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.run == 'true'
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v5
+        if: steps.gate.outputs.run == 'true'
+        with: { node-version: 22.22.0, cache: pnpm }
+      - if: steps.gate.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Link or create the EAS project, then queue builds
+        if: steps.gate.outputs.run == 'true'
+        working-directory: apps/${{ matrix.app }}
+        env:
+          API_URL: ${{ vars.LAHLOBA_PUBLIC_API_URL || 'https://lahloba-api.vercel.app' }}
+          CLERK_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY || 'pk_test_aHVtb3JvdXMtdGFwaXItNzI1LmNsZXJrLmFjY291bnRzLmRldiQ' }}
+        run: |
+          INIT=$(npx --yes eas-cli@25.3.0 init --non-interactive --force --json)
+          echo "$INIT"
+          export EAS_PROJECT_ID=$(echo "$INIT" | jq -r .projectId)
+          export EAS_OWNER=$(echo "$INIT" | jq -r .owner)
+          jq --arg api "${API_URL:-http://127.0.0.1:4000}" --arg clerk "${CLERK_KEY:-}" --arg pid "$EAS_PROJECT_ID" --arg owner "$EAS_OWNER" \
+            '(.build[] | .env) += {EXPO_PUBLIC_API_URL: $api, EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: $clerk, EAS_PROJECT_ID: $pid, EAS_OWNER: $owner}' eas.json > eas.tmp && mv eas.tmp eas.json
+          npx --yes eas-cli@25.3.0 build --platform android --profile preview --non-interactive --no-wait
+          npx --yes eas-cli@25.3.0 build --platform ios --profile simulator --non-interactive --no-wait
