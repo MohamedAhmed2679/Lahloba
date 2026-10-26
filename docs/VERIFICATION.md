@@ -49,8 +49,20 @@ API + migrated/seeded dev database + static servers for the three web builds, dr
 
 Screenshots: `docs/screenshots/`.
 
+## Native and live runs (26 Oct 2026)
+
+- PASS GitHub Actions `native`, commit e20504e: release Android APKs on an emulator and iOS
+  Simulator apps (Xcode 26) for both apps; Maestro flows against a real API and PostgreSQL —
+  browse, servings, Arabic, remembered area, sign-in, checkout with price, sandbox payment, chef
+  workspace, courier jobs. All four jobs green.
+- PASS live staging (Vercel + Neon + Clerk test mode): customer site opens sign-in on Email; a
+  Clerk test address with code 424242 signs up and signs in; Koshari with shop-bought
+  ingredients is refused with the missing items named (sample shops do not stock them);
+  Molokhia for 2 priced from the cheapest basket across two sample shops (EGP 260 sandbox);
+  order placed; sandbox "Payment succeeds" marks all five recipients Paid via the signed webhook.
+
 ## Not executed
 
-Native iOS/Android builds or device runs; VoiceOver/TalkBack; device font-scaling; contrast audit
-tooling; the GitHub Actions workflow; any real identity provider; payments; deployment; load,
-penetration or security testing. No real people, businesses, prices or money were used.
+VoiceOver/TalkBack and device font-scaling by a person; contrast audit tooling; EAS cloud builds
+(need the `EXPO_TOKEN` secret); SMS sign-in to Egyptian numbers (Clerk Tier D); real payments;
+load, penetration or security testing. No real people, businesses, prices or money were used.
