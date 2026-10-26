@@ -98,7 +98,13 @@ name: Customer — checkout and sandbox payment
     id: "get-price"
 - extendedWaitUntil:
     visible:
+      id: "quote-summary"
+    timeout: 30000
+# Smaller screens put the total below the fold.
+- scrollUntilVisible:
+    element:
       id: "quote-total"
+    direction: DOWN
     timeout: 30000
 - assertVisible:
     text: ".*EGP 308.*"
