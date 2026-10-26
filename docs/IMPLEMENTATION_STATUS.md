@@ -18,8 +18,11 @@ the only payment provider is a **sandbox simulator**, refused when `LAHLOBA_ENV=
 - Scheduled sweep: expires quotes and unpaid holds, cancels on partner deadlines (with refunds),
   reconciles unanswered payments. Runs in the worker and as a Vercel Cron route.
 
-**Sign-in** — Clerk (one-time codes by phone or email) in the customer and partner apps and the
-operations console; the API verifies Clerk session tokens (RS256, issuer, authorized parties).
+**Sign-in** — Clerk (one-time codes by email, or phone where SMS is enabled) in the customer and
+partner apps and the operations console; the API verifies Clerk session tokens (RS256, issuer,
+authorized parties). Email is the default because Clerk does not send SMS to Egypt on the current
+plan (Tier D countries need Clerk support to enable); the app says so plainly if phone is chosen.
+The Clerk application is set to sign up with a verified email *or* phone and no password.
 The development identity stub still exists for local work and CI and is refused elsewhere.
 
 **Documents** — partners upload PDF/JPEG/PNG (≤ 4 MB) per required document from files, photos
@@ -65,6 +68,7 @@ EAS cloud builds run when the `EXPO_TOKEN` secret is set.
 | Area | State |
 |---|---|
 | Real payments | Simulator only. A real provider (e.g. Paymob) adapter, merchant onboarding, payouts and settlement are not built. Funds-flow model is still an open founder decision. |
+| SMS sign-in for Egypt | Clerk SMS Tier D; ask support@clerk.com to enable Egypt (≈ $0.20 per SMS), or use another SMS provider. |
 | Notifications | Disabled adapter (no SMS/push/email); partners must keep the app open to see orders. |
 | Malware scanning of documents | Files are marked `NOT_SCANNED`; the console warns reviewers. |
 | Live courier location | Tracking shows leg status on area-level points, not GPS. |
