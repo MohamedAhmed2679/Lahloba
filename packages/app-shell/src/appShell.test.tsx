@@ -69,6 +69,7 @@ describe('sign-in screen with a real provider shape', () => {
     const auth = fake();
     const done = vi.fn();
     render(<L><AuthContextProvider value={auth}><SignInScreen onSignedIn={done} /></AuthContextProvider></L>);
+    fireEvent.click(screen.getByTestId('auth-phone'));
     fireEvent.change(screen.getByTestId('auth-identifier'), { target: { value: '123' } });
     await act(async () => { fireEvent.click(screen.getByTestId('auth-send')); });
     expect(auth.startCode).not.toHaveBeenCalled();
@@ -85,12 +86,21 @@ describe('sign-in screen with a real provider shape', () => {
   it('shows the provider error and stays on the code step', async () => {
     const auth = fake({ verifyCode: vi.fn(async () => ({ error: { code: 'form_code_incorrect', message: 'Incorrect code' } })) });
     render(<L><AuthContextProvider value={auth}><SignInScreen onSignedIn={() => {}} /></AuthContextProvider></L>);
-    fireEvent.click(screen.getByTestId('auth-email'));
     fireEvent.change(screen.getByTestId('auth-identifier'), { target: { value: 'me@example.com' } });
     await act(async () => { fireEvent.click(screen.getByTestId('auth-send')); });
     fireEvent.change(screen.getByTestId('auth-code'), { target: { value: '000000' } });
     await act(async () => { fireEvent.click(screen.getByTestId('auth-verify')); });
     expect(screen.getByTestId('auth-code-error').textContent).toMatch(/Incorrect code/);
+  });
+
+  it('starts on email and explains phone countries that are not enabled', async () => {
+    const auth = fake({ startCode: vi.fn(async () => ({ error: { code: 'phone_country_not_supported', message: 'Phone numbers from this country (Egypt) are currently not supported.' } })) });
+    render(<L><AuthContextProvider value={auth}><SignInScreen onSignedIn={() => {}} /></AuthContextProvider></L>);
+    expect(screen.getByText('Email address')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('auth-phone'));
+    fireEvent.change(screen.getByTestId('auth-identifier'), { target: { value: '01011019117' } });
+    await act(async () => { fireEvent.click(screen.getByTestId('auth-send')); });
+    expect(screen.getByTestId('auth-identifier-error').textContent).toMatch(/use your email/);
   });
 
   it('explains when no provider is configured', () => {

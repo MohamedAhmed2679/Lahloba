@@ -445,6 +445,7 @@ export const en = {
   'pw.refresh': "Refresh",
   'pw.leg.INGREDIENT_TO_CHEF': "Ingredient run",
   'pw.leg.MEAL_TO_CUSTOMER': "Meal delivery",
+  'auth.phoneCountryUnsupported': "Text-message codes to this country aren't switched on yet. Please use your email address instead.",
 } as const;
 
 export type MessageKey = keyof typeof en;

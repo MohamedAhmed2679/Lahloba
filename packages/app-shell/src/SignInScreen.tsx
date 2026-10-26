@@ -16,7 +16,8 @@ const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 export function SignInScreen(props: { onSignedIn: () => void; header?: React.ReactNode; intro?: string }) {
   const auth = useAuth();
   const { t } = useLocale();
-  const [channel, setChannel] = useState<CodeChannel>('phone');
+  // Email first: SMS to Egypt needs the Clerk application's country allowlist to include it.
+  const [channel, setChannel] = useState<CodeChannel>('email');
   const [identifier, setIdentifier] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<'identify' | 'verify'>('identify');
@@ -39,7 +40,10 @@ export function SignInScreen(props: { onSignedIn: () => void; header?: React.Rea
     setError(null);
     const r = await auth.startCode(channel, id ?? identifier);
     setBusy(false);
-    if (r.error) return setError(r.error.message);
+    if (r.error) {
+      const unsupportedCountry = channel === 'phone' && (/country/i.test(r.error.code) || /country.*not supported|not supported.*country/i.test(r.error.message));
+      return setError(unsupportedCountry ? t('auth.phoneCountryUnsupported') : r.error.message);
+    }
     setStep('verify');
   };
 

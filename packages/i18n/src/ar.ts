@@ -447,4 +447,5 @@ export const ar: Record<MessageKey, string> = {
   'pw.refresh': "تحديث",
   'pw.leg.INGREDIENT_TO_CHEF': "توصيل مكوّنات",
   'pw.leg.MEAL_TO_CUSTOMER': "توصيل وجبة",
+  'auth.phoneCountryUnsupported': "رموز الرسائل النصية لهذه الدولة غير مفعّلة بعد. يُرجى استخدام بريدك الإلكتروني بدلًا من ذلك.",
 };
