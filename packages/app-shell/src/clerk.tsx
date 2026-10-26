@@ -51,6 +51,12 @@ function ClerkBridge(props: { children: ReactNode }) {
     }
     const v = m.channel === 'email' ? await signUp.verifications.verifyEmailCode({ code }) : await signUp.verifications.verifyPhoneCode({ code });
     if (v.error) return { error: toError(v.error) };
+    // Code-only sign-up needs the Clerk app to require nothing else (no password, no second
+    // identifier). If it does, say exactly what is missing instead of a generic session error.
+    const missing = (signUp as unknown as { missingFields?: string[] }).missingFields ?? [];
+    if ((signUp as unknown as { status?: string }).status === 'missing_requirements' && missing.length) {
+      return { error: { code: 'SIGN_UP_INCOMPLETE', message: `Sign-up needs more details (${missing.join(', ')}). The Clerk application must allow sign-up with just a verified email or phone.` } };
+    }
     const f = await signUp.finalize();
     return { error: f.error ? toError(f.error) : null };
   }, [signIn, signUp]);
