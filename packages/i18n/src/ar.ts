@@ -230,6 +230,7 @@ export const ar: Record<MessageKey, string> = {
   'ops.evidence.referenceOnly': "مرجع فقط (لا يوجد ملف محفوظ)",
   'ops.evidence.linkFailed': "تعذّر فتح الملف. حاول مرة أخرى.",
   'ops.signInTitle': "سجّل الدخول إلى لوحة التشغيل",
+  'ops.noStaffAccount': "لا يوجد حساب موظف بهذا البريد. اطلب الصلاحية من المسؤول.",
   'ops.staffOnly': "للموظفين فقط. الوصول مقصور على أدوار التشغيل المعتمدة وتُسجّل كل القرارات.",
   'offer.fullyBooked': "هذا المطبخ محجوز بالكامل للأيام القادمة. عُد لاحقًا أو اختر طاهيًا آخر.",
   'offer.kitchenClosed': "لم يفتح هذا المطبخ أي مواعيد طهي بعد.",

@@ -67,4 +67,24 @@ describe('operations console', () => {
     expect(screen.getByTestId('clerk-signin')).toBeTruthy();
     expect(screen.queryByLabelText('Test identity name')).toBeNull();
   });
+
+  it('signs staff in with an email code, says plainly when no staff account exists, and never shows the dev stub', async () => {
+    const sendCode = vi.fn(async (email: string) => (email === 'nobody@example.com'
+      ? { error: { code: 'form_identifier_not_found', message: 'not found' } } : { error: null }));
+    const verifyCode = vi.fn(async () => ({ error: null }));
+    render(<OpsApp apiUrl="http://x" devStubEnabled auth={{ signedIn: false, getToken: async () => null, signOut: () => undefined, codeSignIn: { sendCode, verifyCode } }} />);
+    expect(screen.queryByLabelText('Test identity name')).toBeNull();
+    fireEvent.change(screen.getByTestId('ops-email'), { target: { value: 'not-an-email' } });
+    await act(async () => { fireEvent.click(screen.getByTestId('ops-send')); });
+    expect(screen.getByRole('alert').textContent).toMatch(/valid email/);
+    expect(sendCode).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId('ops-email'), { target: { value: 'nobody@example.com' } });
+    await act(async () => { fireEvent.click(screen.getByTestId('ops-send')); });
+    expect(screen.getByRole('alert').textContent).toMatch(/No staff account/);
+    fireEvent.change(screen.getByTestId('ops-email'), { target: { value: 'reviewer@example.com' } });
+    await act(async () => { fireEvent.click(screen.getByTestId('ops-send')); });
+    fireEvent.change(screen.getByTestId('ops-code'), { target: { value: '424242' } });
+    await act(async () => { fireEvent.click(screen.getByTestId('ops-verify')); });
+    expect(verifyCode).toHaveBeenCalledWith('424242');
+  });
 });

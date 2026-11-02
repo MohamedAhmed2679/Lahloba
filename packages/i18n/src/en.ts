@@ -228,6 +228,7 @@ export const en = {
   'ops.evidence.referenceOnly': "Reference only (no file stored)",
   'ops.evidence.linkFailed': "The file could not be opened. Try again.",
   'ops.signInTitle': "Sign in to the operations console",
+  'ops.noStaffAccount': "No staff account uses that email. Ask an administrator for access.",
   'ops.staffOnly': "Staff only. Access is limited to verified operations roles and every decision is recorded.",
   'offer.fullyBooked': "This kitchen is fully booked for the next days. Check back later or choose another cook.",
   'offer.kitchenClosed': "This kitchen has not opened any cooking times yet.",

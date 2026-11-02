@@ -30,8 +30,13 @@ export interface OpsAuth {
   signedIn: boolean;
   getToken: () => Promise<string | null>;
   signOut: () => void;
-  /** Rendered when signed out, e.g. Clerk's <SignIn />. */
-  signIn: ReactNode;
+  /** Rendered when signed out, when no code sign-in is supplied. */
+  signIn?: ReactNode;
+  /** Email one-time-code sign-in (Clerk in deployed builds). Staff accounts only: never signs up. */
+  codeSignIn?: {
+    sendCode: (email: string) => Promise<{ error: { code: string; message: string } | null }>;
+    verifyCode: (code: string) => Promise<{ error: { code: string; message: string } | null }>;
+  };
 }
 
 export function OpsApp(props: {
@@ -77,7 +82,7 @@ export function OpsApp(props: {
       </header>
       {signedIn
         ? <Queue api={api} t={t} locale={locale} open={(u) => openUrl(absolute(u))} />
-        : <SignIn api={api} t={t} devStubEnabled={props.devStubEnabled} external={props.auth?.signIn} onToken={setDevToken} />}
+        : <SignIn api={api} t={t} devStubEnabled={props.devStubEnabled} external={props.auth?.codeSignIn ? <CodeSignIn t={t} port={props.auth.codeSignIn} /> : props.auth?.signIn} onToken={setDevToken} />}
     </main>
   );
 }
@@ -99,6 +104,50 @@ function Art(props: { name: string; height: number; label?: string }) {
     <svg width={(props.height * w) / h} height={props.height} viewBox={art.viewBox} role={props.label ? 'img' : undefined} aria-label={props.label} aria-hidden={props.label ? undefined : true}>
       {art.c.map((n, i) => draw(n, String(i)))}
     </svg>
+  );
+}
+
+/** Email one-time code, same pattern as the customer and partner apps. */
+function CodeSignIn(props: { t: T; port: NonNullable<OpsAuth['codeSignIn']> }) {
+  const { t, port } = props;
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const send = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) return setError(t('auth.invalidEmail'));
+    setBusy(true); setError(null);
+    const r = await port.sendCode(email.trim());
+    setBusy(false);
+    if (r.error) return setError(/not_found/.test(r.error.code) ? t('ops.noStaffAccount') : r.error.message);
+    setStep('code');
+  };
+  const verify = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(code.trim())) return setError(t('auth.invalidCode'));
+    setBusy(true); setError(null);
+    const r = await port.verifyCode(code.trim());
+    setBusy(false);
+    if (r.error) setError(r.error.message);
+  };
+  return step === 'email' ? (
+    <form onSubmit={send} noValidate style={{ display: 'grid', gap: space.sm }} aria-label={t('ops.signInTitle')}>
+      <label htmlFor="ops-email">{t('auth.email')}</label>
+      <input id="ops-email" data-testid="ops-email" type="email" autoComplete="email" dir="ltr" style={styles.field} value={email} onChange={(e) => setEmail(e.target.value)} />
+      {error ? <p role="alert" style={styles.alert}>{error}</p> : null}
+      <button type="submit" style={styles.button} disabled={busy} data-testid="ops-send">{t('auth.sendCode')}</button>
+    </form>
+  ) : (
+    <form onSubmit={verify} style={{ display: 'grid', gap: space.sm }}>
+      <p role="status" style={styles.note}>{t('auth.codeSent', { to: email.trim() })}</p>
+      <label htmlFor="ops-code">{t('auth.code')}</label>
+      <input id="ops-code" data-testid="ops-code" inputMode="numeric" autoComplete="one-time-code" dir="ltr" style={styles.field} value={code} onChange={(e) => setCode(e.target.value)} />
+      {error ? <p role="alert" style={styles.alert}>{error}</p> : null}
+      <button type="submit" style={styles.button} disabled={busy} data-testid="ops-verify">{t('auth.verify')}</button>
+      <button type="button" style={styles.secondary} onClick={() => { setStep('email'); setCode(''); setError(null); }}>{t('auth.changeIdentifier')}</button>
+    </form>
   );
 }
 
