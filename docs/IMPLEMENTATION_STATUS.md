@@ -64,6 +64,26 @@ runs Maestro flows on an emulator/simulator against a real API and database (bro
 Arabic, remembered area, sign-in, checkout, sandbox payment, chef workspace, courier jobs).
 EAS cloud builds run when the `EXPO_TOKEN` secret is set.
 
+**Motion and feel** — order journey rail through the real stages (grows to the current stage; a
+small steaming pot while cooking — the only ambient motion); the checkout total rolls to the new
+figure when a shop is switched; buttons and cards compress with a spring; chips pop their tick;
+errors and confirmations drop in; handoff codes reveal digit by digit; light haptics on phones.
+All motion is off under Reduce Motion / prefers-reduced-motion, and the rail mirrors in Arabic.
+
+**Assisted features (Hugging Face, optional)** — set `HF_TOKEN` on the API to switch them on;
+without it they are off and nothing else changes (`GET /v1/features` tells the apps).
+- Menu translation drafts for partners (Helsinki-NLP opus-mt en↔ar); always a draft they edit.
+- Dish search by meaning, Arabic or English (`/v1/catalog/search`, multilingual-e5 embeddings
+  cached per dish in `dish_embeddings`); Arabic-aware word search when HF is off or fails.
+- Photo checks on partner uploads: local quality check on every image (blank, dark, blurry, small;
+  the image never leaves our server); kitchen photos only are also checked by a Hugging Face
+  vision model (`HF_VISION_MODEL`). Identity and licence documents are never sent to an outside
+  service. Reviewers see both as advice next to each document.
+
+**Installable builds** — the `installable` workflow builds a universal Android APK of each app and
+an iOS Simulator build, pointed at staging with Clerk sign-in, and publishes them to the GitHub
+pre-release `latest-builds`.
+
 ## Not production-ready (exact list)
 
 | Area | State |
@@ -78,7 +98,9 @@ EAS cloud builds run when the `EXPO_TOKEN` secret is set.
 | EAS cloud builds | Workflow ready and runs on this branch, but skips until the `EXPO_TOKEN` repository secret is added. |
 | Screen readers on devices | Accessibility labels and roles are set; VoiceOver/TalkBack have not been run by a person. |
 | Arabic copy | Draft; needs native review. |
-| Store release | No signing certificates, store listings or production EAS profiles. |
+| Store release | No signing certificates, store listings or production EAS profiles. Android test APKs are debug-signed (side-load only). |
+| iPhone builds | Simulator builds only; a physical-device build needs an Apple Developer account for code signing. |
+| Hugging Face in staging | Off until `HF_TOKEN` (a Hugging Face token with Inference Providers permission) is added to the API project. |
 
 ## Open founder decisions (unchanged)
 
