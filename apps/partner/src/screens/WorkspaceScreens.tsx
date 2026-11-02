@@ -19,6 +19,24 @@ export function ChefMenuPanel(props: { chefId: string }) {
   const [formError, setFormError] = useState<string | null>(null);
   const key = useRef(newIdempotencyKey());
   const pending = interfaces.some((i) => i.ui === 'CHEF' && i.scopeId === props.chefId && i.approvalState === 'PENDING');
+  const [canTranslate, setCanTranslate] = useState(false);
+  const [drafting, setDrafting] = useState<'en' | 'ar' | null>(null);
+  const [drafted, setDrafted] = useState<'en' | 'ar' | null>(null);
+  useEffect(() => { api.features().then((f) => setCanTranslate(f.translate), () => setCanTranslate(false)); }, [api]);
+  // Hugging Face draft of the other language; the partner reviews and edits it before saving.
+  const draft = async (to: 'en' | 'ar') => {
+    const from = to === 'ar' ? 'en' : 'ar';
+    const text = (from === 'en' ? titleEn : titleAr).trim();
+    if (text.length < 2) return setFormError(t('partner.translate.needText'));
+    setDrafting(to); setFormError(null);
+    try {
+      const r = await api.translateDraft({ text, from, to });
+      (to === 'ar' ? setTitleAr : setTitleEn)(r.text);
+      setDrafted(to);
+    } catch (e) {
+      setFormError(e instanceof ApiError ? e.message : t('common.error.generic'));
+    } finally { setDrafting(null); }
+  };
 
   const load = useCallback(() => {
     setError(null);
@@ -33,6 +51,7 @@ export function ChefMenuPanel(props: { chefId: string }) {
       key.current = newIdempotencyKey();
       setTitleEn('');
       setTitleAr('');
+      setDrafted(null);
       setFormError(null);
       load();
     } catch (e) {
@@ -57,8 +76,16 @@ export function ChefMenuPanel(props: { chefId: string }) {
         </Card>
       ))}
       <Text variant="title" role="header">{t('partner.newDish')}</Text>
-      <TextField label={t('partner.titleEn')} value={titleEn} onChangeText={setTitleEn} testID="title-en" />
-      <TextField label={t('partner.titleAr')} value={titleAr} onChangeText={setTitleAr} testID="title-ar" />
+      <TextField label={t('partner.titleEn')} value={titleEn} onChangeText={(v) => { setTitleEn(v); if (drafted === 'en') setDrafted(null); }} testID="title-en" />
+      {canTranslate && titleAr.trim().length >= 2 ? (
+        <Button variant="tertiary" label={t('partner.translate.toEn')} loading={drafting === 'en'} onPress={() => draft('en')} testID="draft-en" />
+      ) : null}
+      {drafted === 'en' ? <Text variant="caption" tone="info" testID="drafted-en">{t('partner.translate.check')}</Text> : null}
+      <TextField label={t('partner.titleAr')} value={titleAr} onChangeText={(v) => { setTitleAr(v); if (drafted === 'ar') setDrafted(null); }} testID="title-ar" />
+      {canTranslate && titleEn.trim().length >= 2 ? (
+        <Button variant="tertiary" label={t('partner.translate.toAr')} loading={drafting === 'ar'} onPress={() => draft('ar')} testID="draft-ar" />
+      ) : null}
+      {drafted === 'ar' ? <Text variant="caption" tone="info" testID="drafted-ar">{t('partner.translate.check')}</Text> : null}
       {formError ? <Notice tone="danger">{formError}</Notice> : null}
       <Button label={t('partner.create')} onPress={create} testID="create-dish" />
     </View>

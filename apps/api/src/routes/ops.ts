@@ -49,7 +49,7 @@ export function registerOpsRoutes(app: FastifyInstance, ctx: RouteContext) {
       if (s.rows[0]) summary = { publicName: s.rows[0].display_name, area: null, equipment: s.rows[0].equipment };
     }
     const ev = await ctx.pool.query(
-      `SELECT id, evidence_type, content_type, byte_size, expires_on, review_state, created_at, storage_state, scan_state FROM partner_evidence WHERE application_id = $1 ORDER BY created_at`,
+      `SELECT id, evidence_type, content_type, byte_size, expires_on, review_state, created_at, storage_state, scan_state, quality_check, content_check FROM partner_evidence WHERE application_id = $1 ORDER BY created_at`,
       [id],
     );
     await audit(ctx.pool, { actorUserId: actor.userId, action: 'PARTNER_EVIDENCE_METADATA_READ', targetType: 'partner_application', targetId: id, correlationId: req.id });
@@ -61,6 +61,8 @@ export function registerOpsRoutes(app: FastifyInstance, ctx: RouteContext) {
         evidenceId: e.id, evidenceType: e.evidence_type, contentType: e.content_type, byteSize: e.byte_size,
         expiresOn: e.expires_on, reviewState: e.review_state, createdAt: new Date(e.created_at).toISOString(),
         fileState: e.storage_state, scanState: e.scan_state,
+        qualityCheck: e.quality_check ? { ok: e.quality_check.ok, issues: e.quality_check.issues } : null,
+        contentCheck: e.content_check ? { state: e.content_check.state, note: e.content_check.note ?? null } : null,
       })),
     });
   });

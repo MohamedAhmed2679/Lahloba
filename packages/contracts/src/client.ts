@@ -118,6 +118,9 @@ export function createApiClient(opts: ApiClientOptions) {
     recipes: () => request(S.RecipeList, 'GET', '/v1/learn/recipes'),
     recipe: (id: string) => request(S.RecipeDetail, 'GET', `/v1/learn/recipes/${encodeURIComponent(id)}`),
     ingredients: () => request(S.IngredientList, 'GET', '/v1/ingredients'),
+    searchDishes: (q: { area: string; q: string }) => request(S.DishSearchResponse, 'GET', `/v1/catalog/search${qs(q)}`),
+    features: () => request(S.Features, 'GET', '/v1/features'),
+    translateDraft: (body: z.input<typeof S.TranslateRequest>) => request(S.TranslateResponse, 'POST', '/v1/ai/translate', body),
 
     // Identity
     me: () => request(S.Me, 'GET', '/v1/me'),

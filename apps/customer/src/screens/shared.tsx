@@ -1,7 +1,7 @@
-import { ApiError, NetworkError } from '@lahloba/contracts';
+import { ApiError, NetworkError, type OfferCard } from '@lahloba/contracts';
 import type { MessageKey, Vars } from '@lahloba/i18n';
-import { BrandLockup, Button, Row, useLocale } from '@lahloba/ui';
-import { pickLocalized } from '@lahloba/i18n';
+import { BrandLockup, Button, Card, IllustrativeBadge, Row, Text, useLocale } from '@lahloba/ui';
+import { formatMoney, pickLocalized } from '@lahloba/i18n';
 import { useApp } from '../AppContext';
 
 type T = (k: MessageKey, v?: Vars) => string;
@@ -23,5 +23,22 @@ export function TopBar(props: { showBack?: boolean }) {
         <Button variant="secondary" label={`${pickLocalized(locale, area.label.en, area.label.ar)} · ${t('location.change')}`} onPress={() => nav.push('/location')} testID="change-area" />
       ) : null}
     </Row>
+  );
+}
+
+/** One dish offer in a list (browse and search). */
+export function OfferCardItem(props: { offer: OfferCard }) {
+  const { nav } = useApp();
+  const { t, locale } = useLocale();
+  const o = props.offer;
+  return (
+    <Card testID={`offer-${o.offerId}`} onPress={() => nav.push(`/offers/${o.offerId}`)}
+      accessibilityLabel={`${pickLocalized(locale, o.title.en, o.title.ar)}, ${t('results.byChef', { chef: o.chef.publicName })}`}>
+      <Text variant="title">{pickLocalized(locale, o.title.en, o.title.ar)}</Text>
+      <Text muted>{t('results.byChef', { chef: o.chef.publicName })} · {pickLocalized(locale, o.chef.area.en, o.chef.area.ar)}</Text>
+      <Text>{t('results.labourBasis', { amount: formatMoney(o.laborPerPersonPiastres, locale) })}</Text>
+      <Text variant="caption" muted>{t('results.leadTime', { minutes: o.leadTimeMinutes })}</Text>
+      <IllustrativeBadge show={o.illustrative} />
+    </Card>
   );
 }

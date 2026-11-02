@@ -72,6 +72,21 @@ export const OfferCard = z.object({
 });
 export type OfferCard = z.infer<typeof OfferCard>;
 
+/** Free-text dish search across every service mode in an area. */
+export const DishSearchQuery = z.object({ area: Uuid, q: z.string().trim().min(2).max(120) });
+export const DishSearchResponse = z.object({
+  serviceability: z.enum(['SERVICEABLE', 'UNSUPPORTED_AREA']),
+  /** semantic: meaning-based (Hugging Face embeddings); keyword: word match (fallback). */
+  mode: z.enum(['semantic', 'keyword']),
+  items: z.array(OfferCard),
+});
+export type DishSearchResponse = z.infer<typeof DishSearchResponse>;
+export const Features = z.object({ translate: z.boolean(), semanticSearch: z.boolean(), kitchenPhotoCheck: z.boolean(), photoQualityCheck: z.boolean() });
+export type Features = z.infer<typeof Features>;
+export const TranslateRequest = z.object({ text: z.string().trim().min(1).max(1000), from: z.enum(['en', 'ar']), to: z.enum(['en', 'ar']) }).strict();
+export const TranslateResponse = z.object({ text: z.string(), model: z.string(), draft: z.literal(true) });
+export type TranslateResponse = z.infer<typeof TranslateResponse>;
+
 export const OfferSearchQuery = z.object({
   area: Uuid,
   mode: ServiceModeSchema,
@@ -262,6 +277,10 @@ export const EvidenceMetadata = z.object({
   expiresOn: z.string().nullable(), reviewState: z.enum(['PENDING_REVIEW', 'ACCEPTED', 'REJECTED']), createdAt: z.string(),
   fileState: z.enum(['STORAGE_DISABLED', 'DEV_METADATA_ONLY', 'PENDING_UPLOAD', 'UPLOADED', 'REJECTED_FILE']),
   scanState: z.enum(['NOT_SCANNED', 'CLEAN', 'INFECTED']),
+  /** Advice for the reviewer only. Local analysis of image quality (the image never leaves our server). */
+  qualityCheck: z.object({ ok: z.boolean(), issues: z.array(z.enum(['BLANK', 'TOO_DARK', 'TOO_BRIGHT', 'BLURRY', 'TOO_SMALL'])) }).nullable().optional(),
+  /** Advice only. Kitchen photos: does a Hugging Face vision model see a kitchen? Never run on identity documents. */
+  contentCheck: z.object({ state: z.enum(['LOOKS_RIGHT', 'LOOKS_WRONG', 'UNSURE', 'UNAVAILABLE']), note: z.string().max(200).nullable() }).nullable().optional(),
 });
 export const OpsApplicationDetail = PartnerApplicationDto.extend({
   applicant: z.object({ userId: Uuid, displayName: z.string().nullable() }),

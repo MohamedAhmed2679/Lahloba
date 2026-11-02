@@ -5,7 +5,7 @@ import type { ServiceMode } from '@lahloba/domain';
 import { formatMoney, pickLocalized } from '@lahloba/i18n';
 import { Button, Card, Chip, EmptyState, ErrorState, IllustrativeBadge, LoadingState, Notice, Row, Screen, Text, useLocale } from '@lahloba/ui';
 import { useApp, useAsync } from '../AppContext';
-import { TopBar, errorMessage } from './shared';
+import { OfferCardItem, TopBar, errorMessage } from './shared';
 
 const toggle = (list: string[], slug: string) => (list.includes(slug) ? list.filter((s) => s !== slug) : [...list, slug]);
 
@@ -90,16 +90,7 @@ export function ResultsScreen(props: { mode: ServiceMode }) {
             {items.length === 0 ? (
               <EmptyState message={t('results.empty')} actionLabel={selectedCount ? t('results.emptyAction') : undefined} onAction={selectedCount ? reset : undefined} />
             ) : (
-              items.map((o) => (
-                <Card key={o.offerId} testID={`offer-${o.offerId}`} onPress={() => nav.push(`/offers/${o.offerId}`)}
-                  accessibilityLabel={`${pickLocalized(locale, o.title.en, o.title.ar)}, ${t('results.byChef', { chef: o.chef.publicName })}`}>
-                  <Text variant="title">{pickLocalized(locale, o.title.en, o.title.ar)}</Text>
-                  <Text muted>{t('results.byChef', { chef: o.chef.publicName })} · {pickLocalized(locale, o.chef.area.en, o.chef.area.ar)}</Text>
-                  <Text>{t('results.labourBasis', { amount: formatMoney(o.laborPerPersonPiastres, locale) })}</Text>
-                  <Text variant="caption" muted>{t('results.leadTime', { minutes: o.leadTimeMinutes })}</Text>
-                  <IllustrativeBadge show={o.illustrative} />
-                </Card>
-              ))
+              items.map((o) => <OfferCardItem key={o.offerId} offer={o} />)
             )}
             {cursor ? <Button variant="secondary" label={t('results.loadMore')} loading={loadingMore} onPress={() => loadMore(cursor, items)} testID="load-more" /> : null}
           </>

@@ -4,6 +4,7 @@ import * as C from '@lahloba/contracts';
 import type { RouteContext } from '../app';
 import type { Queryable } from '../db';
 import { HttpError, notFound } from '../errors';
+import { semanticRank } from '../ai/search';
 
 /**
  * Anonymous catalog. Every response is parsed through a public contract schema, which strips
@@ -189,6 +190,27 @@ export function registerPublicRoutes(app: FastifyInstance, ctx: RouteContext) {
   });
 
   // Public chef profile. Never exposes the kitchen address; suspended/unapproved chefs are 404.
+  // Free-text search: by meaning when Hugging Face is configured, otherwise by words. Same eligibility as browse.
+  app.get('/v1/catalog/search', { config: { rateLimit: { max: 60 * (ctx.rateLimitScale ?? 1), timeWindow: '1 minute' } } }, async (req) => {
+    const q = C.DishSearchQuery.parse(req.query);
+    const area = await loadArea(pool, q.area);
+    if (!serviceable(area)) return C.DishSearchResponse.parse({ serviceability: 'UNSUPPORTED_AREA', mode: 'keyword', items: [] });
+    const rows = (await pool.query<OfferRow & { description_en: string; description_ar: string; facets: string | null }>(
+      `SELECT ${OFFER_COLUMNS}, d.description_en, d.description_ar,
+         (SELECT string_agg(f.label_en || ' ' || f.label_ar, ' ') FROM dish_facets df JOIN facets f ON f.id = df.facet_id WHERE df.dish_id = d.id) AS facets
+       ${ELIGIBLE_OFFER_FROM}
+       AND EXISTS (SELECT 1 FROM chef_service_areas csa WHERE csa.chef_id = c.id AND csa.area_id = $1)
+       AND c.accepting_orders AND ${CAPACITY_OK}
+       ORDER BY lower(d.title_en), ov.id LIMIT 300`, [q.area])).rows;
+    const ranked = await semanticRank(pool, ctx.ai, q.q, rows.map((r) => ({
+      key: r.offer_id, dishId: r.dish_id,
+      text: [r.title_en, r.title_ar, r.description_en, r.description_ar, r.facets ?? ''].join(' . '),
+    })), req.log);
+    const byId = new Map(rows.map((r) => [r.offer_id, r]));
+    const picked = ranked.keys.slice(0, 20).map((k) => byId.get(k)!).filter(Boolean);
+    return C.DishSearchResponse.parse({ serviceability: 'SERVICEABLE', mode: ranked.mode, items: await toCards(pool, picked) });
+  });
+
   app.get('/v1/chefs/:id', async (req) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
     const r = await pool.query(

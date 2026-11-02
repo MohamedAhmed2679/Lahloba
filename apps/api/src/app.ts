@@ -17,6 +17,8 @@ import { registerOrderRoutes } from './routes/orders';
 import { registerPartnerRoutes } from './routes/partners';
 import { registerPublicRoutes } from './routes/public';
 import { registerSupplierRoutes } from './routes/supplier';
+import { registerAiRoutes } from './routes/ai';
+import { createHuggingFace, type HuggingFace } from './ai/huggingface';
 import type { EvidenceStorage } from './storage/evidence';
 
 export type ResolvedActor = Actor & { displayName: string | null; locale: 'en' | 'ar' };
@@ -29,9 +31,12 @@ export interface AppDeps {
   logger?: boolean;
   /** Multiplies every rate limit (tests only raise it; production uses 1). */
   rateLimitScale?: number;
+  /** Hugging Face client; defaults from config (null when HF_TOKEN is unset). Tests inject a fake. */
+  ai?: HuggingFace | null;
 }
 
-export interface RouteContext extends AppDeps {
+export interface RouteContext extends Omit<AppDeps, 'ai'> {
+  ai: HuggingFace | null;
   /** Verified, ACTIVE actor or 401/403. Identity always comes from the bearer token. */
   requireActor(req: FastifyRequest): Promise<ResolvedActor>;
 }
@@ -91,7 +96,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     return p;
   };
 
-  const ctx: RouteContext = { ...deps, requireActor };
+  const ai = deps.ai !== undefined ? deps.ai : deps.config.ai ? createHuggingFace({ ...deps.config.ai, token: deps.config.ai.hfToken }) : null;
+  const ctx: RouteContext = { ...deps, ai, requireActor };
   app.get('/v1/health', async () => ({ status: 'ok' }));
   await app.register(async (s) => registerPublicRoutes(s, ctx));
   await app.register(async (s) => registerMeRoutes(s, ctx));
@@ -101,6 +107,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(async (s) => registerSupplierRoutes(s, ctx));
   await app.register(async (s) => registerEvidenceRoutes(s, ctx));
   await app.register(async (s) => registerOrderRoutes(s, ctx));
+  await app.register(async (s) => registerAiRoutes(s, ctx));
   if (deps.identity.kind === 'dev-stub' && (deps.config.env === 'development' || deps.config.env === 'test')) {
     await app.register(async (s) => registerDevRoutes(s, ctx));
   }

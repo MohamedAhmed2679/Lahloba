@@ -1,7 +1,7 @@
 import { ENTRY_POINTS, type EntryPoint } from '@lahloba/domain';
 import { pickLocalized } from '@lahloba/i18n';
 import { useAuth } from '@lahloba/app-shell';
-import { Button, LanguageSwitch, Notice, Row, Screen, ServiceModeCard, Text, useLocale } from '@lahloba/ui';
+import { Button, Card, LanguageSwitch, Notice, Row, Screen, ServiceModeCard, Text, useLocale } from '@lahloba/ui';
 import { View } from 'react-native';
 import { useApp } from '../AppContext';
 import { TopBar } from './shared';
@@ -29,6 +29,10 @@ export function HomeScreen() {
       </Row>
       {area ? <Text muted>{t('location.selected', { area: pickLocalized(locale, area.label.en, area.label.ar) })}</Text> : null}
       {unsupported ? <Notice tone="warning" testID="unsupported-area">{t('location.unsupported')}</Notice> : null}
+      <Card onPress={() => nav.push(area ? '/search' : '/location')} testID="home-search" accessibilityLabel={t('home.search')}>
+        <Text variant="label">{t('home.search')}</Text>
+        <Text variant="caption" muted>{t('search.hint')}</Text>
+      </Card>
       <View style={{ gap: 12 }}>
         {ENTRY_POINTS.map((e) => (
           <ServiceModeCard key={e} entry={e} onPress={() => open(e)} />

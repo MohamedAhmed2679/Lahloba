@@ -287,6 +287,7 @@ function Detail(props: { api: ApiClient; t: T; locale: Locale; id: string; open:
             <th scope="col" style={styles.cell}>{t('ops.evidence.format')}</th>
             <th scope="col" style={styles.cell}>{t('ops.evidence.size')}</th>
             <th scope="col" style={styles.cell}>{t('ops.evidence.file')}</th>
+            <th scope="col" style={styles.cell}>{t('ops.check.title')}</th>
           </tr></thead>
           <tbody>
             {d.evidence.map((e) => (
@@ -301,12 +302,27 @@ function Detail(props: { api: ApiClient; t: T; locale: Locale; id: string; open:
                     : e.fileState === 'REJECTED_FILE' ? <span style={{ color: c.danger }}>✕ {t('ops.evidence.rejectedFile')}</span>
                     : <span>{t('ops.evidence.referenceOnly')}</span>}
                 </td>
+                <td style={styles.cell} data-testid={`check-${e.evidenceId}`}>
+                  {e.qualityCheck ? (
+                    e.qualityCheck.ok
+                      ? <div>✓ {t('ops.check.qualityOk')}</div>
+                      : <div style={{ color: c.warning }}>⚠ {e.qualityCheck.issues.map((i) => t(`ops.check.issue.${i}` as const)).join(', ')}</div>
+                  ) : null}
+                  {e.contentCheck ? (
+                    <div style={{ color: e.contentCheck.state === 'LOOKS_WRONG' ? c.warning : c.textMuted }}>
+                      {e.contentCheck.state === 'LOOKS_RIGHT' ? '✓ ' : e.contentCheck.state === 'LOOKS_WRONG' ? '⚠ ' : ''}{t(`ops.check.content.${e.contentCheck.state}` as const)}
+                      {e.contentCheck.note ? <span>{` (“${e.contentCheck.note}”)`}</span> : null}
+                    </div>
+                  ) : null}
+                  {!e.qualityCheck && !e.contentCheck ? <span style={{ color: c.textMuted }}>—</span> : null}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <p role="note" style={{ color: c.textMuted }}>{t('ops.evidence.linkNote')}</p>
+      {d.evidence.some((e) => e.qualityCheck || e.contentCheck) ? <p role="note" style={{ color: c.textMuted }}>{t('ops.check.advisory')}</p> : null}
       {anyUnscanned ? <p role="note" style={{ ...styles.note, background: c.warningSurface }}>⚠ {t('ops.evidence.notScanned')}</p> : null}
       {fileError ? <p role="alert" style={styles.alert}>{fileError}</p> : null}
       <form onSubmit={submit} style={{ display: 'grid', gap: space.sm }}>

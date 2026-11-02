@@ -87,4 +87,16 @@ describe('operations console', () => {
     await act(async () => { fireEvent.click(screen.getByTestId('ops-verify')); });
     expect(verifyCode).toHaveBeenCalledWith('424242');
   });
+
+  it('shows automatic photo checks as advice next to each document', async () => {
+    const checked: OpsApplicationDetail = { ...detail, evidence: [
+      { ...detail.evidence[0]!, fileState: 'UPLOADED', qualityCheck: { ok: false, issues: ['BLURRY'] }, contentCheck: null },
+      { ...detail.evidence[1]!, evidenceId: id(6), fileState: 'UPLOADED', byteSize: 2048, qualityCheck: { ok: true, issues: [] }, contentCheck: { state: 'LOOKS_WRONG', note: 'A photo of a car' } },
+    ] };
+    await signIn({ opsApplications: async () => ({ items: [app] }), opsApplication: async () => checked });
+    await act(async () => { fireEvent.click(await screen.findByTestId(`queue-${app.id}`)); });
+    expect((await screen.findByTestId(`check-${id(4)}`)).textContent).toMatch(/looks blurry/);
+    expect(screen.getByTestId(`check-${id(6)}`).textContent).toMatch(/Photo looks clear.*May not show a kitchen.*A photo of a car/);
+    expect(screen.getByText(/advice only/)).toBeTruthy();
+  });
 });

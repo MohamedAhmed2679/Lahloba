@@ -1,3 +1,4 @@
+import type { HuggingFace } from './ai/huggingface';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -38,7 +39,7 @@ export async function createDisposableDatabase() {
   };
 }
 
-export async function createTestContext(opts: { seed?: boolean; evidence?: ServerConfig['evidenceStorage']; rateLimitScale?: number } = {}) {
+export async function createTestContext(opts: { seed?: boolean; evidence?: ServerConfig['evidenceStorage']; rateLimitScale?: number; ai?: HuggingFace | null } = {}) {
   const db = await createDisposableDatabase();
   const pool = createPool(db.url, 20);
   const c = await pool.connect();
@@ -54,9 +55,10 @@ export async function createTestContext(opts: { seed?: boolean; evidence?: Serve
     cronSecret: 'test-cron-secret-0123456789',
     publicApiUrl: null,
     worker: { pollIntervalMs: 100, maxAttempts: 3 },
+    ai: null,
   };
   const identity = new DevStubIdentityProvider(secret);
-  const app = await buildApp({ config, pool, identity, evidence: createEvidenceStorage(config.evidenceStorage, { localDir: config.storage.localDir ?? undefined }), rateLimitScale: opts.rateLimitScale ?? 100 });
+  const app = await buildApp({ config, pool, identity, evidence: createEvidenceStorage(config.evidenceStorage, { localDir: config.storage.localDir ?? undefined }), rateLimitScale: opts.rateLimitScale ?? 100, ai: opts.ai ?? null });
   await app.ready();
   let n = 0;
   return {

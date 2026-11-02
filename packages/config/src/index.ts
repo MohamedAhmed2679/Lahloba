@@ -37,6 +37,10 @@ const RawConfig = z.object({
   CRON_SECRET: z.string().optional(),
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().min(100).default(2000),
   WORKER_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(50).default(8),
+  // Hugging Face Inference (optional). Without HF_TOKEN every AI feature is off and the app works as before.
+  HF_TOKEN: z.string().optional(),
+  HF_EMBED_MODEL: z.string().default('intfloat/multilingual-e5-large'),
+  HF_VISION_MODEL: z.string().default('google/gemma-4-31B-it:fastest'),
 });
 
 export interface ServerConfig {
@@ -57,6 +61,8 @@ export interface ServerConfig {
   orders: { handoffSecret: string } | null;
   cronSecret: string | null;
   worker: { pollIntervalMs: number; maxAttempts: number };
+  /** Hugging Face Inference; null when HF_TOKEN is not set (features off, never a hard failure). */
+  ai: { hfToken: string; embedModel: string; visionModel: string } | null;
 }
 
 export class ConfigError extends Error {
@@ -163,6 +169,9 @@ export function loadServerConfig(source: Record<string, string | undefined> = pr
     orders,
     cronSecret: raw.CRON_SECRET ?? null,
     worker: { pollIntervalMs: raw.WORKER_POLL_INTERVAL_MS, maxAttempts: raw.WORKER_MAX_ATTEMPTS },
+    ai: raw.HF_TOKEN && raw.HF_TOKEN.trim().startsWith('hf_')
+      ? { hfToken: raw.HF_TOKEN.trim(), embedModel: raw.HF_EMBED_MODEL, visionModel: raw.HF_VISION_MODEL }
+      : null,
   };
 }
 
@@ -176,5 +185,6 @@ export function describeConfig(c: ServerConfig) {
     evidenceStorage: c.evidenceStorage,
     payments: c.payments.provider,
     corsOrigins: c.corsOrigins,
+    ai: c.ai ? { embedModel: c.ai.embedModel, visionModel: c.ai.visionModel } : 'off',
   };
 }

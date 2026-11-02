@@ -6,6 +6,7 @@ import type { PickFile } from '../filePicker';
 import { PartnerProviders, type Nav } from '../PartnerContext';
 import { ApplyScreen } from './ApplyScreen';
 import { RolesScreen } from './RolesScreen';
+import { ChefMenuPanel } from './WorkspaceScreens';
 import { SignInScreen } from './SignInScreen';
 import { SupplierScreen } from './WorkspaceScreens';
 import { ChefOrdersPanel, CourierJobsScreen, SupplierOrdersPanel } from './WorkScreens';
@@ -247,5 +248,25 @@ describe('partner work: chef, shop and courier', () => {
     await act(async () => { fireEvent.click(screen.getByTestId(`collect-${id(87)}`)); });
     expect(collectStop).toHaveBeenCalledWith(id(86), id(87), { code: '123456', expectedVersion: 2 });
     expect(screen.getByTestId(`leg-error-${id(86)}`).textContent).toMatch(/4 tries left/);
+  });
+});
+
+describe('menu translation drafts (Hugging Face)', () => {
+  it('drafts the Arabic name from the English, marks it as a draft, and hides the button when the feature is off', async () => {
+    const translateDraft = vi.fn(async () => ({ text: 'ملوخية بالفراخ', model: 'Helsinki-NLP/opus-mt-en-ar', draft: true as const }));
+    const base = { me: async () => me([]), chefDishes: async () => ({ items: [] }), translateDraft };
+    setup({ ...base, features: async () => ({ translate: true, semanticSearch: true, kitchenPhotoCheck: true, photoQualityCheck: true }) }, <ChefMenuPanel chefId={id(20)} />);
+    fireEvent.change(await screen.findByTestId('title-en'), { target: { value: 'Molokhia with chicken' } });
+    await act(async () => { fireEvent.click(await screen.findByTestId('draft-ar')); });
+    expect(translateDraft).toHaveBeenCalledWith({ text: 'Molokhia with chicken', from: 'en', to: 'ar' });
+    expect((screen.getByTestId('title-ar') as HTMLInputElement).value).toBe('ملوخية بالفراخ');
+    expect(screen.getByTestId('drafted-ar').textContent).toMatch(/Machine draft/);
+    fireEvent.change(screen.getByTestId('title-ar'), { target: { value: 'ملوخية بالدجاج' } });
+    expect(screen.queryByTestId('drafted-ar')).toBeNull(); // edited by the partner: no longer a draft
+    cleanup();
+    setup({ ...base, features: async () => ({ translate: false, semanticSearch: false, kitchenPhotoCheck: false, photoQualityCheck: true }) }, <ChefMenuPanel chefId={id(20)} />);
+    fireEvent.change(await screen.findByTestId('title-en'), { target: { value: 'Molokhia with chicken' } });
+    await act(async () => {});
+    expect(screen.queryByTestId('draft-ar')).toBeNull();
   });
 });

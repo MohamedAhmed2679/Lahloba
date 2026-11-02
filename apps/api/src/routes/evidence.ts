@@ -4,6 +4,8 @@ import * as C from '@lahloba/contracts';
 import { canReviewPartnerApplications } from '@lahloba/domain';
 import type { RouteContext } from '../app';
 import { withTx } from '../db';
+import { assessQuality, type QualityResult } from '../ai/imageQuality';
+import { AiUnavailable, firstJson } from '../ai/huggingface';
 import { HttpError, forbidden, notFound } from '../errors';
 import { audit } from '../platform';
 import { MAX_UPLOAD_BYTES, prepareEvidence, type EvidenceContentType } from '../storage/files';
@@ -30,7 +32,7 @@ export function registerEvidenceRoutes(app: FastifyInstance, ctx: RouteContext) 
     if (!FILE_TYPES.includes(contentType) || !Buffer.isBuffer(req.body)) throw new HttpError(415, 'UNSUPPORTED_FILE', 'Upload a PDF, JPEG or PNG file');
 
     const row = (await ctx.pool.query(
-      `SELECT e.id, e.object_key, e.content_type, e.storage_state, a.applicant_user_id, a.status, a.id AS application_id
+      `SELECT e.id, e.object_key, e.content_type, e.evidence_type, e.storage_state, a.applicant_user_id, a.status, a.id AS application_id
        FROM partner_evidence e JOIN partner_applications a ON a.id = e.application_id WHERE e.id = $1`, [evidenceId],
     )).rows[0];
     if (!row || row.applicant_user_id !== actor.userId) throw notFound('Evidence');
@@ -52,11 +54,13 @@ export function registerEvidenceRoutes(app: FastifyInstance, ctx: RouteContext) 
 
     // Network call outside any database transaction (doc 05 §5.4), then record the result.
     await ctx.evidence.put(row.object_key, prepared.bytes, contentType);
+    // Advice for the reviewer, never a decision. Failures here never block the upload.
+    const checks = await photoChecks(ctx, row.evidence_type, contentType, prepared.bytes, req.log);
     const updated = await withTx(ctx.pool, async (db) => {
       const u = await db.query(
-        `UPDATE partner_evidence SET storage_state = 'UPLOADED', uploaded_at = now(), sha256 = $2, byte_size = $3
+        `UPDATE partner_evidence SET storage_state = 'UPLOADED', uploaded_at = now(), sha256 = $2, byte_size = $3, quality_check = $4, content_check = $5
          WHERE id = $1 AND storage_state = 'PENDING_UPLOAD' RETURNING byte_size, scan_state`,
-        [evidenceId, prepared.sha256, prepared.bytes.length],
+        [evidenceId, prepared.sha256, prepared.bytes.length, checks.quality ? JSON.stringify(checks.quality) : null, checks.content ? JSON.stringify(checks.content) : null],
       );
       if (!u.rowCount) throw new HttpError(409, 'ALREADY_UPLOADED', 'A file was already received for this document');
       await audit(db, { actorUserId: actor.userId, action: 'PARTNER_EVIDENCE_FILE_UPLOADED', targetType: 'partner_evidence', targetId: evidenceId, metadata: { bytes: prepared.bytes.length }, correlationId: req.id });
@@ -97,4 +101,31 @@ export function registerEvidenceRoutes(app: FastifyInstance, ctx: RouteContext) 
       .header('referrer-policy', 'no-referrer');
     return reply.send(Buffer.from(bytes));
   });
+}
+
+const KITCHEN_PROMPT = 'You help a reviewer check a photo uploaded by someone applying to cook food from home. '
+  + 'Does this photo show a kitchen or food-preparation area? Reply with JSON only: '
+  + '{"kitchen": "yes" | "no" | "unsure", "note": "<at most 15 words about what the photo shows>"}';
+
+/**
+ * Photo checks on upload. Quality: local, every image. Content: Hugging Face vision model, kitchen
+ * photos only; identity and licence documents are never sent to an outside service.
+ */
+async function photoChecks(ctx: RouteContext, evidenceType: string, contentType: EvidenceContentType, bytes: Uint8Array, log: { warn: (o: object, m: string) => void }) {
+  if (contentType === 'application/pdf') return { quality: null, content: null };
+  let quality: QualityResult | null = null;
+  try { quality = assessQuality(bytes, contentType); } catch (e) { log.warn({ err: (e as Error).message }, 'photo quality check failed'); }
+  let content: { state: 'LOOKS_RIGHT' | 'LOOKS_WRONG' | 'UNSURE' | 'UNAVAILABLE'; note: string | null; model?: string } | null = null;
+  if (evidenceType === 'KITCHEN_PHOTO' && ctx.ai) {
+    try {
+      const reply = firstJson(await ctx.ai.vision(KITCHEN_PROMPT, { bytes, contentType }));
+      const k = String(reply?.kitchen ?? '').toLowerCase();
+      const note = typeof reply?.note === 'string' ? reply.note.slice(0, 200) : null;
+      content = { state: k === 'yes' ? 'LOOKS_RIGHT' : k === 'no' ? 'LOOKS_WRONG' : 'UNSURE', note };
+    } catch (e) {
+      if (!(e instanceof AiUnavailable)) throw e;
+      content = { state: 'UNAVAILABLE', note: null };
+    }
+  }
+  return { quality, content };
 }

@@ -10,6 +10,7 @@ import { OfferDetailScreen } from './OfferDetailScreen';
 import { ResultsScreen } from './ResultsScreen';
 import { CheckoutScreen } from './CheckoutScreen';
 import { OrderScreen } from './OrderScreens';
+import { SearchScreen } from './SearchScreen';
 
 afterEach(cleanup);
 
@@ -319,5 +320,34 @@ describe('C08-C10 checkout and sandbox payment', () => {
     await waitFor(() => expect(screen.getByTestId('order-status').textContent).toMatch(/Paid — waiting for the cook/));
     expect(screen.getByTestId('allocations').textContent).toMatch(/Paid/);
     expect(screen.queryByTestId('pay-card')).toBeNull();
+  });
+});
+
+describe('dish search', () => {
+  it('searches after a pause, shows only the latest answer and says how it matched', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const searchDishes = vi.fn(async (q: { area: string; q: string }) => ({
+        serviceability: 'SERVICEABLE' as const, mode: 'semantic' as const,
+        items: q.q.includes('chicken') ? [card(1, 'Molokhia with chicken')] : [],
+      }));
+      setup({ api: { searchDishes }, area: maadi }, <SearchScreen />);
+      fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'something light with chicken' } });
+      expect(searchDishes).not.toHaveBeenCalled();
+      await act(async () => { vi.advanceTimersByTime(400); });
+      expect(searchDishes).toHaveBeenCalledTimes(1);
+      expect(searchDishes).toHaveBeenCalledWith({ area: maadi.id, q: 'something light with chicken' });
+      expect((await screen.findByTestId('search-mode')).textContent).toBe('Matched by meaning');
+      expect(screen.getByTestId(`offer-${id(101)}`).textContent).toMatch(/Molokhia with chicken/);
+      fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'pizza' } });
+      await act(async () => { vi.advanceTimersByTime(400); });
+      expect(await screen.findByTestId('search-empty')).toBeTruthy();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('asks for an area first', () => {
+    const { nav } = setup({ api: {} }, <SearchScreen />);
+    fireEvent.click(screen.getByText('Choose area'));
+    expect(nav.push).toHaveBeenCalledWith('/location');
   });
 });
