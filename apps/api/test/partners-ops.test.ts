@@ -57,6 +57,7 @@ describe.skipIf(!TEST_DB_ADMIN_URL)('identity, partner applications and operatio
     // Pending chef: membership PENDING; can draft but not publish; not in discovery.
     const me = await call(ctx, 'GET', '/v1/me', { token: tok });
     expect(me.body.memberships).toContainEqual(expect.objectContaining({ role: 'CHEF_OWNER', scopeId: chefId, approvalState: 'PENDING' }));
+    expect(me.body.scopeNames[chefId]).toEqual(expect.any(String));
     expect((await call(ctx, 'GET', `/v1/chefs/${chefId}`)).status).toBe(404);
 
     // Second open application of same kind is refused.

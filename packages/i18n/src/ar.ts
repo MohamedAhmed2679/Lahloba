@@ -368,6 +368,7 @@ export const ar: Record<MessageKey, string> = {
   'pw.state.RESERVED': "بانتظار ردك",
   'pw.state.RESERVED.accepted': "تم القبول — بانتظار تأكيد المحلات",
   'pw.state.AWAITING_INGREDIENTS': "المكوّنات في الطريق",
+  'pw.state.AWAITING_INGREDIENTS.arrived': "وصلت المكوّنات — راجعها",
   'pw.state.READY_TO_PREPARE': "جاهز للطهي",
   'pw.state.PREPARING': "جارٍ الطهي",
   'pw.state.READY_FOR_PICKUP': "بانتظار المندوب",

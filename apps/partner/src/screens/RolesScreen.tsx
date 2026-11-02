@@ -21,7 +21,13 @@ export function RolesScreen() {
 
   if (!me) return <Screen><Text>{t('common.loading')}</Text></Screen>;
   const roleLabel = (ui: PublicRoleInterface) => t(`partner.role.${ui}` as const);
-  const partnerInterfaces = interfaces.filter((i) => i.ui !== 'CUSTOMER');
+  // One supplier workspace covers every shop the person runs, so their shops share one card.
+  const partnerInterfaces = interfaces.filter((i) => i.ui !== 'CUSTOMER')
+    .filter((i, n, all) => i.ui !== 'SUPPLIER' || all.findIndex((x) => x.ui === 'SUPPLIER') === n);
+  const names = (ui: PublicRoleInterface, scopeId: string | null) => {
+    const ids = ui === 'SUPPLIER' ? interfaces.filter((x) => x.ui === 'SUPPLIER').map((x) => x.scopeId) : [scopeId];
+    return ids.map((sid) => (sid ? me.scopeNames?.[sid] : undefined)).filter(Boolean).join(' · ');
+  };
   const held = new Set(partnerInterfaces.map((i) => i.ui));
 
   const open = (ui: PublicRoleInterface, scopeId: string | null) => {
@@ -42,6 +48,7 @@ export function RolesScreen() {
       {partnerInterfaces.map((i) => (
         <Card key={`${i.ui}-${i.scopeId}`} testID={`role-${i.ui}`}>
           <Text variant="title">{roleLabel(i.ui)}</Text>
+          {names(i.ui, i.scopeId) ? <Text testID={`role-name-${i.ui}`}>{names(i.ui, i.scopeId)}</Text> : null}
           <Text variant="caption" muted>{t(`partner.state.${i.approvalState}` as 'partner.state.PENDING')}</Text>
           {i.approvalState === 'PENDING' ? <Notice>{t('partner.pendingAccess')}</Notice> : null}
           {i.approvalState === 'APPROVED' || i.approvalState === 'PENDING' ? (

@@ -4,16 +4,34 @@ import type { ResolvedActor, RouteContext } from '../app';
 import { audit } from '../platform';
 import { runMutation } from './mutation';
 
-const toMe = (a: ResolvedActor, overrides: Partial<{ locale: 'en' | 'ar'; displayName: string | null }> = {}) =>
+const toMe = (a: ResolvedActor, overrides: Partial<{ locale: 'en' | 'ar'; displayName: string | null }> = {}, scopeNames?: Record<string, string>) =>
   C.Me.parse({
     userId: a.userId,
     displayName: overrides.displayName !== undefined ? overrides.displayName : a.displayName,
     locale: overrides.locale ?? a.locale,
     memberships: a.memberships,
+    ...(scopeNames ? { scopeNames } : {}),
   });
 
+/** Public names for the partner scopes, so a person holding several sees which is which. */
+async function scopeNamesFor(db: { query: RouteContext['pool']['query'] }, a: ResolvedActor): Promise<Record<string, string>> {
+  const ids = (t: string) => a.memberships.filter((m) => m.scopeType === t && m.scopeId).map((m) => m.scopeId!);
+  const out: Record<string, string> = {};
+  const add = async (sql: string, list: string[]) => {
+    if (!list.length) return;
+    for (const r of (await db.query(sql, [list])).rows as Array<{ id: string; name: string }>) out[r.id] = r.name;
+  };
+  await add(`SELECT id, public_name AS name FROM chefs WHERE id = ANY($1::uuid[])`, ids('CHEF'));
+  await add(`SELECT id, public_name AS name FROM supplier_organizations WHERE id = ANY($1::uuid[])`, ids('SUPPLIER_ORG'));
+  await add(`SELECT id, display_name AS name FROM courier_profiles WHERE id = ANY($1::uuid[])`, ids('COURIER'));
+  return out;
+}
+
 export function registerMeRoutes(app: FastifyInstance, ctx: RouteContext) {
-  app.get('/v1/me', async (req) => toMe(await ctx.requireActor(req)));
+  app.get('/v1/me', async (req) => {
+    const actor = await ctx.requireActor(req);
+    return toMe(actor, {}, await scopeNamesFor(ctx.pool, actor));
+  });
 
   app.patch('/v1/me', async (req, reply) => {
     const body = C.UpdateMeRequest.parse(req.body ?? {});

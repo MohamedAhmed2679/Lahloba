@@ -64,6 +64,26 @@ describe('role switching (multi-role accounts)', () => {
   });
 });
 
+describe('role cards name the kitchen and shops', () => {
+  it('shows each kitchen by name and puts all of a person\'s shops on one supplier card', async () => {
+    const api: Partial<ApiClient> = {
+      me: async () => ({
+        ...me([
+          { id: id(11), role: 'CHEF_OWNER', scopeType: 'CHEF', scopeId: id(20), approvalState: 'APPROVED' },
+          { id: id(13), role: 'SUPPLIER_OWNER', scopeType: 'SUPPLIER_ORG', scopeId: id(30), approvalState: 'APPROVED' },
+          { id: id(14), role: 'SUPPLIER_OWNER', scopeType: 'SUPPLIER_ORG', scopeId: id(31), approvalState: 'APPROVED' },
+        ]),
+        scopeNames: { [id(20)]: 'Kitchen A', [id(30)]: 'Grocer One', [id(31)]: 'Market Two' },
+      }),
+      myApplications: async () => ({ items: [] }),
+    };
+    setup(api, <RolesScreen />);
+    expect((await screen.findByTestId('role-name-CHEF')).textContent).toBe('Kitchen A');
+    expect(screen.getAllByTestId('role-SUPPLIER')).toHaveLength(1);
+    expect(screen.getByTestId('role-name-SUPPLIER').textContent).toBe('Grocer One · Market Two');
+  });
+});
+
 describe('partner application form', () => {
   it('validates required fields, keeps the kitchen address in a private field, and reuses one idempotency key', async () => {
     const applyAsPartner = vi.fn(async () => { throw Object.assign(new Error('offline'), {}); });

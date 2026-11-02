@@ -366,6 +366,7 @@ export const en = {
   'pw.state.RESERVED': "Waiting for your answer",
   'pw.state.RESERVED.accepted': "Accepted — waiting for shops to confirm",
   'pw.state.AWAITING_INGREDIENTS': "Ingredients on the way",
+  'pw.state.AWAITING_INGREDIENTS.arrived': "Ingredients arrived — check them",
   'pw.state.READY_TO_PREPARE': "Ready to cook",
   'pw.state.PREPARING': "Cooking",
   'pw.state.READY_FOR_PICKUP': "Waiting for the courier",

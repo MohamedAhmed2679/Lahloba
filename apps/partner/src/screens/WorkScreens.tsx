@@ -87,7 +87,9 @@ function ChefOrderCard(props: { chefId: string; order: ChefOrderDto; onChanged: 
   };
   const money = (p: number) => formatMoney(p, locale);
   const ingLeg = o.legs.find((l) => l.kind === 'INGREDIENT_TO_CHEF');
-  const stateLabel = o.fulfillmentState === 'RESERVED' && o.chefAcceptance === 'ACCEPTED' ? t('pw.state.RESERVED.accepted') : t(`pw.state.${o.fulfillmentState}` as MessageKey);
+  const stateLabel = o.fulfillmentState === 'RESERVED' && o.chefAcceptance === 'ACCEPTED' ? t('pw.state.RESERVED.accepted')
+    : o.fulfillmentState === 'AWAITING_INGREDIENTS' && ingLeg?.state === 'DELIVERED' ? t('pw.state.AWAITING_INGREDIENTS.arrived')
+    : t(`pw.state.${o.fulfillmentState}` as MessageKey);
   const stateTone = o.fulfillmentState === 'CANCELLED' ? 'failed' : o.fulfillmentState === 'DELIVERED' ? 'confirmed' : o.fulfillmentState === 'RESERVED' ? 'pending' : 'progress';
   const toCheck = o.ingredients.filter((i) => !i.isPantry);
   return (
@@ -132,7 +134,7 @@ function ChefOrderCard(props: { chefId: string; order: ChefOrderDto; onChanged: 
             const good = ok[i.ingredientId] ?? true;
             return (
               <Chip key={i.ingredientId} selected={good} onToggle={() => setOk({ ...ok, [i.ingredientId]: !good })}
-                label={`${good ? '✓' : '✕'} ${pickLocalized(locale, i.name.en, i.name.ar)} · ${formatQuantity(i.quantity, i.unit as 'g', locale)}`} testID={`check-${i.ingredientId}`} />
+                label={`${good ? '' : '✕ '}${pickLocalized(locale, i.name.en, i.name.ar)} · ${formatQuantity(i.quantity, i.unit as 'g', locale)}`} testID={`check-${i.ingredientId}`} />
             );
           })}
           {problem || toCheck.some((i) => ok[i.ingredientId] === false) ? (

@@ -186,6 +186,8 @@ export const Me = z.object({
   displayName: z.string().nullable(),
   locale: LocaleSchema,
   memberships: z.array(MembershipDto),
+  /** Public names of the kitchens, shops and courier profiles the memberships are scoped to. */
+  scopeNames: z.record(Uuid, z.string()).optional(),
 });
 export type Me = z.infer<typeof Me>;
 export const UpdateMeRequest = z.object({ locale: LocaleSchema.optional(), displayName: z.string().trim().min(1).max(80).optional() }).strict();
