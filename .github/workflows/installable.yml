@@ -1,0 +1,136 @@
+# Installable test builds for real devices, published to a GitHub pre-release.
+#  - Android: universal release APK per app (arm64, armv7, x86_64), signed with the standard
+#    Android debug key so it can be side-loaded for testing. Not for the Play Store.
+#  - iOS: Simulator build per app (.app zipped). A build for a physical iPhone needs Apple code
+#    signing (an Apple Developer account), which is not configured.
+# Both talk to the STAGING API (sandbox payments, illustrative data) with Clerk sign-in.
+name: installable
+on:
+  push:
+    branches: [main, feature/expo-platform]
+  workflow_dispatch:
+concurrency:
+  group: installable-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: write
+
+env:
+  CI: "1"
+  EXPO_NO_TELEMETRY: "1"
+  # Public values only (these ship inside the app by design).
+  EXPO_PUBLIC_API_URL: ${{ vars.LAHLOBA_PUBLIC_API_URL || 'https://lahloba-api.vercel.app' }}
+  EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY || 'pk_test_aHVtb3JvdXMtdGFwaXItNzI1LmNsZXJrLmFjY291bnRzLmRldiQ' }}
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [customer, partner]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v5
+        with: { node-version: 22.22.0, cache: pnpm }
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: "17" }
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache/CodeQL /usr/local/share/powershell /opt/microsoft || true
+          df -h / | tail -1
+      - run: pnpm install --frozen-lockfile
+      - name: NDK with retries
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          for i in 1 2 3 4; do tools/ci/run-logged.sh "ndk-$i" bash -c "yes | '$SDKM' --install 'ndk;27.1.12297006' > /dev/null" && break; sleep 10; done
+      - name: Prebuild native project
+        working-directory: apps/${{ matrix.app }}
+        run: ../../tools/ci/run-logged.sh prebuild-android npx expo prebuild --platform android --clean --no-install
+      - name: Build universal release APK
+        working-directory: apps/${{ matrix.app }}/android
+        run: ../../../tools/ci/run-logged.sh gradle ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64 --no-daemon
+      - name: Name the APK
+        run: |
+          SHORT=$(git rev-parse --short HEAD)
+          cp apps/${{ matrix.app }}/android/app/build/outputs/apk/release/app-release.apk "lahloba-${{ matrix.app }}-staging-$SHORT.apk"
+          ls -la lahloba-*.apk
+          echo "::notice title=APK ${{ matrix.app }}::$(du -h lahloba-*.apk | cut -f1)"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: apk-${{ matrix.app }}
+          path: lahloba-*.apk
+          retention-days: 14
+
+  ios-simulator:
+    runs-on: macos-26
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { app: customer, scheme: Lahloba, appName: Lahloba }
+          - { app: partner, scheme: LahlobaPartner, appName: LahlobaPartner }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v5
+        with: { node-version: 22.22.0, cache: pnpm }
+      - name: Select newest Xcode
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -z "$X" ] && X=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$X/Contents/Developer"
+      - run: pnpm install --frozen-lockfile
+      - name: Prebuild native project
+        working-directory: apps/${{ matrix.app }}
+        run: ../../tools/ci/run-logged.sh prebuild-ios npx expo prebuild --platform ios --clean
+      - name: Build for iOS Simulator (Release)
+        working-directory: apps/${{ matrix.app }}/ios
+        run: |
+          ../../../tools/ci/run-logged.sh xcodebuild xcodebuild -workspace ${{ matrix.scheme }}.xcworkspace -scheme ${{ matrix.scheme }} -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO
+      - name: Zip the simulator app
+        run: |
+          SHORT=$(git rev-parse --short HEAD)
+          (cd apps/${{ matrix.app }}/ios/build/Build/Products/Release-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/lahloba-${{ matrix.app }}-ios-simulator-staging-$SHORT.zip" ${{ matrix.appName }}.app)
+          ls -la lahloba-*.zip
+      - uses: actions/upload-artifact@v5
+        with:
+          name: ios-${{ matrix.app }}
+          path: lahloba-*.zip
+          retention-days: 14
+
+  publish:
+    needs: [android, ios-simulator]
+    if: ${{ !cancelled() && (needs.android.result == 'success' || needs['ios-simulator'].result == 'success') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v5
+        with: { path: dist, merge-multiple: true }
+      - name: Publish pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          SHORT=${GITHUB_SHA::7}
+          TAG="builds-$SHORT"
+          ls -la dist
+          cat > notes.md <<EOF
+          Test builds of commit $SHORT on \`${GITHUB_REF_NAME}\`. They use the **staging** server: sandbox payments only, sample (illustrative) kitchens and shops.
+
+          **Android (phone or tablet):** download \`lahloba-customer-…apk\` or \`lahloba-partner-…apk\` on the device and open it. Allow "Install unknown apps" for your browser when asked. Sign in with your email code.
+
+          **iPhone:** the \`ios-simulator\` zips run in the iOS Simulator on a Mac (unzip, then drag the .app onto a booted simulator). A build for a physical iPhone needs Apple code signing, which is not set up yet.
+          EOF
+          gh release delete "$TAG" --repo "$REPO" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" dist/* --repo "$REPO" --target "$GITHUB_SHA" --prerelease --title "Test builds $SHORT" --notes-file notes.md
+          # A stable link to the newest builds.
+          gh release delete latest-builds --repo "$REPO" --yes --cleanup-tag 2>/dev/null || true
+          gh release create latest-builds dist/* --repo "$REPO" --target "$GITHUB_SHA" --prerelease --title "Latest test builds ($SHORT)" --notes-file notes.md
+          echo "::notice title=Release::https://github.com/$REPO/releases/tag/latest-builds"

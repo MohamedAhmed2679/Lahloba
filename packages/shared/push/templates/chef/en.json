@@ -1,7 +1,0 @@
-[
-  {"id":"NEW_ORDER","priority":"high","title":"New order!","body":"{{customer_name}} ordered {{meal_name}} ({{servings}} servings)."},
-  {"id":"INGREDIENTS_ARRIVING","priority":"normal","title":"Ingredients arriving","body":"Driver is on the way with ingredients for order #{{order_id}}."},
-  {"id":"INGREDIENTS_DELIVERED","priority":"high","title":"Ingredients delivered!","body":"All ingredients are here. Start cooking order #{{order_id}}!"},
-  {"id":"SUBSTITUTION_PROPOSED","priority":"high","title":"Substitution needs approval","body":"{{store_name}} proposed a replacement. Tap to review."},
-  {"id":"DRIVER_ARRIVING_PICKUP","priority":"high","title":"Driver arriving","body":"Driver is coming to pick up the meal for order #{{order_id}}."}
-]

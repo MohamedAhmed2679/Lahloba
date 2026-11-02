@@ -1,0 +1,21 @@
+-- Rollback of 0002. DESTRUCTIVE: drops catalog data. Disposable/dev databases or reviewed recovery only.
+DROP TABLE IF EXISTS inventory_balances;
+DROP TRIGGER IF EXISTS ingredient_requirements_unit_guard ON ingredient_requirements;
+DROP FUNCTION IF EXISTS guard_requirement_unit();
+DROP TABLE IF EXISTS supplier_products;
+DROP FUNCTION IF EXISTS guard_product_unit();
+DROP TRIGGER IF EXISTS dishes_publication_guard ON dishes;
+DROP FUNCTION IF EXISTS guard_dish_publication();
+DROP TABLE IF EXISTS offer_variant_price_history;
+DROP TABLE IF EXISTS offer_variants;
+DROP FUNCTION IF EXISTS record_variant_price_history();
+DROP TABLE IF EXISTS ingredient_requirements;
+DROP FUNCTION IF EXISTS guard_published_requirements();
+DROP TABLE IF EXISTS recipe_versions;
+DROP FUNCTION IF EXISTS guard_published_recipe();
+DROP TABLE IF EXISTS dish_facets;
+DROP TABLE IF EXISTS dishes;
+DROP TABLE IF EXISTS ingredients;
+DROP TABLE IF EXISTS collection_members;
+DROP TABLE IF EXISTS facet_aliases;
+DROP TABLE IF EXISTS facets;

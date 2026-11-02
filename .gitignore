@@ -1,18 +1,12 @@
-.env
 node_modules/
 dist/
-.next/
-build/
-*.apk
-*.aab
-*.ipa
-.dart_tool/
-.packages
-.flutter-plugins
-.flutter-plugins-dependencies
-pubspec.lock
-*.g.dart
-*.freezed.dart
+web-build/
+.expo/
+*.log
+.env
+.env.*
+!.env.example
 coverage/
-.DS_Store
-*.ps1
+# Expo prebuild output (generated in CI; this repo uses Continuous Native Generation)
+apps/*/android/
+apps/*/ios/
