@@ -60,7 +60,10 @@ jobs:
           ls -la lahloba-*.apk
           echo "::notice title=APK ${{ matrix.app }}::$(du -h lahloba-*.apk | cut -f1)"
       - uses: actions/upload-artifact@v5
-        with: { name: apk-${{ matrix.app }}, path: "lahloba-*.apk", retention-days: 14 }
+        with:
+          name: apk-${{ matrix.app }}
+          path: lahloba-*.apk
+          retention-days: 14
 
   ios-simulator:
     runs-on: macos-26
@@ -98,7 +101,10 @@ jobs:
           (cd apps/${{ matrix.app }}/ios/build/Build/Products/Release-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/lahloba-${{ matrix.app }}-ios-simulator-staging-$SHORT.zip" ${{ matrix.appName }}.app)
           ls -la lahloba-*.zip
       - uses: actions/upload-artifact@v5
-        with: { name: ios-${{ matrix.app }}, path: "lahloba-*.zip", retention-days: 14 }
+        with:
+          name: ios-${{ matrix.app }}
+          path: lahloba-*.zip
+          retention-days: 14
 
   publish:
     needs: [android, ios-simulator]
