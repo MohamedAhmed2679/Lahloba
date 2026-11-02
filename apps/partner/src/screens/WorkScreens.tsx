@@ -3,7 +3,7 @@ import { ApiError, newIdempotencyKey, type CapacitySlotDto, type ChefOrderDto, t
 import { formatMoney, formatQuantity, formatSlot, formatTime, pickLocalized, type MessageKey } from '@lahloba/i18n';
 import { OsmMap } from '@lahloba/app-shell/map';
 import {
-  Button, Card, Chip, EmptyState, ErrorState, LoadingState, Notice, RoleStrip, Row, Screen, StatusBadge, Text, TextField, roleAccent, useLocale,
+  Button, Card, Chip, CodeReveal, EmptyState, fontFor, ErrorState, LoadingState, Notice, RoleStrip, Row, Screen, StatusBadge, Text, TextField, roleAccent, useLocale,
 } from '@lahloba/ui';
 import { usePartner } from '../PartnerContext';
 
@@ -17,10 +17,12 @@ export function explain(t: T, e: unknown): string {
 
 /** Big, spaced digits the partner reads out or shows to the courier. */
 function CodeCard(props: { title: string; code: string; testID?: string }) {
+  const { locale, colors } = useLocale();
   return (
     <Card testID={props.testID}>
       <Text variant="caption">{props.title}</Text>
-      <Text variant="display" style={{ letterSpacing: 8 }} testID={props.testID ? `${props.testID}-value` : undefined}>{props.code}</Text>
+      <CodeReveal code={props.code} testID={props.testID ? `${props.testID}-value` : undefined}
+        style={[fontFor('display', locale), { fontSize: 34, lineHeight: 44, letterSpacing: 6, color: colors.text }]} />
     </Card>
   );
 }

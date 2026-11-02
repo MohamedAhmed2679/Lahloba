@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ApiError, NetworkError, newIdempotencyKey, type QuoteDto } from '@lahloba/contracts';
 import { formatMoney, formatQuantity, formatSlot, formatTime, pickLocalized, type MessageKey } from '@lahloba/i18n';
 import { KEYS, SignInScreen, readJson, useAuth } from '@lahloba/app-shell';
-import { Button, Card, Chip, LoadingState, Notice, Row, Screen, Text, TextField, useLocale } from '@lahloba/ui';
+import { Button, Card, Chip, LoadingState, Notice, RollingNumber, Row, Screen, Text, TextField, fontFor, type as typeScale, useLocale } from '@lahloba/ui';
 import { useApp } from '../AppContext';
 import { TopBar } from './shared';
 
@@ -18,7 +18,7 @@ const KNOWN = ['SLOT_UNAVAILABLE', 'CAPACITY_UNAVAILABLE', 'BASKET_INCOMPLETE', 
 export function CheckoutScreen(props: { offerId: string; servings: number; source: 'CHEF' | 'SUPPLIERS'; slotId: string }) {
   const { api, nav, area, store } = useApp();
   const auth = useAuth();
-  const { t, locale } = useLocale();
+  const { t, locale, colors } = useLocale();
   const [saved, setSaved] = useState<SavedAddress | null>(null);
   const [useSaved, setUseSaved] = useState(true);
   const [text, setText] = useState('');
@@ -160,7 +160,9 @@ export function CheckoutScreen(props: { offerId: string; servings: number; sourc
                 <Text variant="price">{money(l.amountPiastres)}</Text>
               </Row>
             ))}
-            <Text variant="priceLarge" testID="quote-total">{t('checkout.total', { amount: money(quote.totalPiastres) })}</Text>
+            {/* Switching a shop re-prices: the total rolls from the old figure to the new one. */}
+            <RollingNumber value={quote.totalPiastres} step={100} format={(n) => t('checkout.total', { amount: money(n) })} testID="quote-total"
+              style={[fontFor('priceLarge', locale), { fontSize: typeScale.priceLarge.fontSize, lineHeight: typeScale.priceLarge.lineHeight, color: colors.text }]} />
             <Text variant="caption" muted>{t('checkout.heldUntil', { time: formatTime(quote.expiresAt) })}</Text>
           </Card>
           <Button label={t('checkout.placeOrder')} onPress={place} loading={busy} testID="place-order" />

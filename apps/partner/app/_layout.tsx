@@ -18,6 +18,8 @@ const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
 const devStubEnabled = process.env.EXPO_PUBLIC_DEV_IDENTITY_STUB === 'true';
 const publicApi = createApiClient({ baseUrl: apiUrl });
 
+import '../src/haptics';
+
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function AuthLayer(props: { children: ReactNode }) {

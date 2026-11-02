@@ -13,6 +13,8 @@ import { AppProviders, type Nav } from '../src/AppContext';
 import { apiUrl, clerkPublishableKey, devStubEnabled } from '../src/config';
 import { expoLocation } from '../src/expoLocation';
 
+import '../src/haptics';
+
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 const publicApi = createApiClient({ baseUrl: apiUrl });

@@ -3,7 +3,8 @@ import { ApiError, newIdempotencyKey, type OrderDto, type PaymentSessionDto } fr
 import { formatMoney, formatSlot, formatTime, pickLocalized, type MessageKey } from '@lahloba/i18n';
 import { KEYS, SignInScreen, useAuth } from '@lahloba/app-shell';
 import { OsmMap } from '@lahloba/app-shell/map';
-import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Notice, Row, Screen, StatusBadge, Text, useLocale } from '@lahloba/ui';
+import { Button, Card, Chip, CodeReveal, EmptyState, ErrorState, LoadingState, Notice, Row, Screen, StatusBadge, Text, feedback, fontFor, useLocale } from '@lahloba/ui';
+import { OrderJourney } from './OrderJourney';
 import { useApp, useAsync } from '../AppContext';
 import { TopBar, errorMessage } from './shared';
 
@@ -27,7 +28,7 @@ const TERMINAL = (o: OrderDto) => o.fulfillmentState === 'DELIVERED' || (o.fulfi
 export function OrderScreen(props: { orderId: string }) {
   const { api, nav } = useApp();
   const auth = useAuth();
-  const { t, locale } = useLocale();
+  const { t, locale, colors } = useLocale();
   const [order, setOrder] = useState<OrderDto | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [session, setSession] = useState<PaymentSessionDto | null>(null);
@@ -69,6 +70,7 @@ export function OrderScreen(props: { orderId: string }) {
   const startPay = () => run(async () => { setSession(await api.startPayment(o.id, keys.current.pay)); keys.current.pay = newIdempotencyKey(); });
   const simulate = (outcome: 'SUCCEED' | 'DECLINE' | 'TIMEOUT') => run(async () => {
     await api.simulatePayment(session!.sessionId, { outcome }, keys.current.sim);
+    if (outcome === 'SUCCEED') feedback('success');
     keys.current.sim = newIdempotencyKey();
     setSession(null);
   });
@@ -94,7 +96,7 @@ export function OrderScreen(props: { orderId: string }) {
       {showCode ? (
         <Card testID="dropoff-code">
           <Text variant="label">{t('order.code')}</Text>
-          <Text variant="display" style={{ letterSpacing: 8 }} testID="dropoff-code-value">{o.dropoffCode}</Text>
+          <CodeReveal code={o.dropoffCode!} testID="dropoff-code-value" style={[fontFor('display', locale), { fontSize: 34, lineHeight: 44, letterSpacing: 6, color: colors.text }]} />
           <Text variant="caption" muted>{t('order.codeHint')}</Text>
         </Card>
       ) : null}
@@ -118,6 +120,13 @@ export function OrderScreen(props: { orderId: string }) {
         </Card>
       ) : null}
       {actionError ? <Notice tone="danger" testID="order-action-error">{actionError}</Notice> : null}
+
+      {o.fulfillmentState !== 'CANCELLED' ? (
+        <>
+          <Text variant="title" role="header">{t('journey.title')}</Text>
+          <OrderJourney order={o} testID="order-journey" />
+        </>
+      ) : null}
 
       {o.legs.length && o.fulfillmentState !== 'CANCELLED' ? (
         <>

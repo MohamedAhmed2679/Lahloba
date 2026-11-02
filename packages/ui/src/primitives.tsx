@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text as RNText, TextInput, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { ActivityIndicator, Animated, Platform, Pressable, ScrollView, Text as RNText, TextInput, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { useLocale } from './LocaleContext';
+import { Reveal, feedback, usePressScale, useReducedMotion } from './motion';
 import { fonts, minTouchTarget, radius, space, type as typeScale, type TypeVariant } from './tokens';
 
 /** react-native-web adds focus/hover to the Pressable state; native provides only `pressed`. */
@@ -71,15 +73,19 @@ export function Button(props: {
   const bg = v === 'primary' ? colors.accent : v === 'destructive' ? colors.danger : v === 'secondary' ? colors.surface : 'transparent';
   const fg = v === 'primary' || v === 'destructive' ? colors.onAccent : v === 'tertiary' ? colors.accent : colors.text;
   const border = v === 'secondary' ? colors.ink : bg;
+  const press = usePressScale(0.97);
   return (
+    <Animated.View style={press.style}>
     <Pressable
+      onPressIn={disabled ? undefined : press.onPressIn}
+      onPressOut={press.onPressOut}
       accessibilityRole="button"
       accessibilityLabel={props.accessibilityLabel ?? props.label}
       accessibilityState={{ disabled: !!disabled, busy: !!props.loading }}
       accessibilityHint={props.accessibilityHint}
       aria-disabled={!!disabled}
       disabled={disabled}
-      onPress={props.onPress}
+      onPress={() => { feedback(v === 'destructive' ? 'warning' : 'tap'); props.onPress(); }}
       testID={props.testID}
       style={(state) => {
         const { pressed, focused } = state as WebPressState;
@@ -88,7 +94,7 @@ export function Button(props: {
           alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: space.sm,
           backgroundColor: bg, borderWidth: v === 'secondary' ? 1.5 : 2,
           borderColor: focused ? colors.focus : border,
-          opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
+          opacity: disabled ? 0.5 : pressed ? 0.92 : 1,
           ...(focused && Platform.OS === 'web' ? { outlineStyle: 'solid', outlineWidth: 2, outlineColor: colors.focus, outlineOffset: 2 } : {}),
         } as ViewStyle;
       }}
@@ -96,6 +102,7 @@ export function Button(props: {
       {props.loading ? <ActivityIndicator color={fg} /> : props.icon ?? null}
       <RNText allowFontScaling style={[scale('label', locale), fontFor('label', locale), { color: fg }]}>{props.label}</RNText>
     </Pressable>
+    </Animated.View>
   );
 }
 
@@ -106,9 +113,13 @@ export function Card(props: { children: ReactNode; onPress?: () => void; accessi
     borderWidth: props.selected ? 2 : 1, borderColor: props.selected ? colors.accent : scheme === 'light' ? 'rgba(42,28,23,0.08)' : colors.border,
     ...(scheme === 'light' ? { shadowColor: '#2A1C17', shadowOpacity: 0.08, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 } : {}),
   };
+  const press = usePressScale(0.985);
   if (!props.onPress) return <View style={[base, props.style]} testID={props.testID}>{props.children}</View>;
   return (
+    <Animated.View style={press.style}>
     <Pressable
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       accessibilityRole="button"
       accessibilityLabel={props.accessibilityLabel}
       accessibilityState={props.selected !== undefined ? { selected: props.selected } : undefined}
@@ -118,6 +129,7 @@ export function Card(props: { children: ReactNode; onPress?: () => void; accessi
     >
       {props.children}
     </Pressable>
+    </Animated.View>
   );
 }
 
@@ -125,13 +137,22 @@ export function Card(props: { children: ReactNode; onPress?: () => void; accessi
 export function Chip(props: { label: string; selected: boolean; onToggle: () => void; count?: number; disabled?: boolean; testID?: string }) {
   const { colors, locale } = useLocale();
   const text = `${props.selected ? '✓ ' : ''}${props.label}${props.count !== undefined ? ` (${props.count})` : ''}`;
+  const reduced = useReducedMotion();
+  const pop = useRef(new Animated.Value(1)).current;
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    if (reduced || !props.selected) return;
+    pop.setValue(0.92);
+    Animated.spring(pop, { toValue: 1, useNativeDriver: Platform.OS !== 'web', speed: 30, bounciness: 10 }).start();
+  }, [props.selected, reduced, pop]);
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked: props.selected, disabled: !!props.disabled }}
       aria-checked={props.selected}
       disabled={props.disabled}
-      onPress={props.onToggle}
+      onPress={() => { feedback('tap'); props.onToggle(); }}
       testID={props.testID}
       hitSlop={6}
       style={(state) => {
@@ -143,7 +164,7 @@ export function Chip(props: { label: string; selected: boolean; onToggle: () => 
         };
       }}
     >
-      <RNText allowFontScaling style={[scale('caption', locale), fontFor('caption', locale, props.selected), { color: props.selected ? colors.accent : colors.text }]}>{text}</RNText>
+      <Animated.Text allowFontScaling style={[scale('caption', locale), fontFor('caption', locale, props.selected), { color: props.selected ? colors.accent : colors.text, transform: [{ scale: pop }] }]}>{text}</Animated.Text>
     </Pressable>
   );
 }
@@ -157,7 +178,7 @@ export function Notice(props: { children: ReactNode; tone?: 'info' | 'warning' |
   const tone = props.tone ?? 'info';
   const surface = { info: colors.infoSurface, warning: colors.warningSurface, danger: colors.dangerSurface, success: colors.successSurface }[tone];
   const fg = { info: 'info', warning: 'warning', danger: 'danger', success: 'success' }[tone] as Tone;
-  return (
+  const body = (
     <View
       accessibilityRole={tone === 'info' || tone === 'success' ? 'summary' : 'alert'}
       testID={props.testID}
@@ -166,6 +187,8 @@ export function Notice(props: { children: ReactNode; tone?: 'info' | 'warning' |
       <Text tone={fg}>{props.children}</Text>
     </View>
   );
+  // Errors and confirmations answer something the person did, so they arrive with a short drop.
+  return tone === 'danger' || tone === 'success' ? <Reveal>{body}</Reveal> : body;
 }
 
 export type Status = 'confirmed' | 'pending' | 'progress' | 'failed';
