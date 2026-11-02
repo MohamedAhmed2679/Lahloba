@@ -22,7 +22,8 @@ the only payment provider is a **sandbox simulator**, refused when `LAHLOBA_ENV=
 partner apps and the operations console; the API verifies Clerk session tokens (RS256, issuer,
 authorized parties). Email is the default because Clerk does not send SMS to Egypt on the current
 plan (Tier D countries need Clerk support to enable); the app says so plainly if phone is chosen.
-The Clerk application is set to sign up with a verified email *or* phone and no password.
+The Clerk application is set to sign up with a verified email *or* phone and no password. The
+operations console uses the same email code, sign-in only.
 The development identity stub still exists for local work and CI and is refused elsewhere.
 
 **Documents** — partners upload PDF/JPEG/PNG (≤ 4 MB) per required document from files, photos
@@ -73,7 +74,8 @@ EAS cloud builds run when the `EXPO_TOKEN` secret is set.
 | Malware scanning of documents | Files are marked `NOT_SCANNED`; the console warns reviewers. |
 | Live courier location | Tracking shows leg status on area-level points, not GPS. |
 | Distance-based tariffs | Area-pair table with illustrative fees; distance bands are an open decision. |
-| Ops roles in production | Staging CLI grant only; production needs a dual-approval procedure. |
+| Ops roles in production | Staging only: `ops:grant` CLI or `LAHLOBA_STAGING_DEMO_SUBJECTS` (links testers to the sample partners). Production needs a dual-approval procedure. |
+| EAS cloud builds | Workflow ready and runs on this branch, but skips until the `EXPO_TOKEN` repository secret is added. |
 | Screen readers on devices | Accessibility labels and roles are set; VoiceOver/TalkBack have not been run by a person. |
 | Arabic copy | Draft; needs native review. |
 | Store release | No signing certificates, store listings or production EAS profiles. |

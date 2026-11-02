@@ -61,6 +61,26 @@ Screenshots: `docs/screenshots/`.
   Molokhia for 2 priced from the cheapest basket across two sample shops (EGP 260 sandbox);
   order placed; sandbox "Payment succeeds" marks all five recipients Paid via the signed webhook.
 
+## Live end-to-end order (2 Nov 2026, staging)
+
+Signed in with a Clerk test address (code 424242) on all three sites; the account is linked to the
+ILLUSTRATIVE partners by `LAHLOBA_STAGING_DEMO_SUBJECTS` (staging only, audited).
+
+- PASS 26 Oct order LH-6E47717D was cancelled by the sweep when no partner answered in time and
+  shows "Refunded in full" with every recipient Refunded.
+- PASS kitchen times had run out (seeded once); fixed by `topUpIllustrativeSlots` on each staging
+  build and daily sweep — the build added 13 windows and dishes reappeared.
+- PASS quote EGP 260; switching the chicken to the other shop re-prices to EGP 335 and back.
+- PASS LH-3AB44272: placed, sandbox payment succeeded (5 recipients Paid); cook accepted; both
+  shops confirmed and got pickup codes; courier saw exact addresses only after taking the job; a
+  wrong pickup code was refused ("4 tries left"); both pickups and the kitchen drop-off confirmed
+  with the right codes; the cook ticked the ingredients, started cooking, packed; the courier
+  collected with the cook's code and delivered with the customer's code. Customer sees Delivered.
+- Found and fixed during the run: role cards did not name the kitchen or shops; the cook's status
+  still read "Ingredients on the way" after they arrived; the ingredient checklist showed a double
+  tick; the operations console used Clerk's password form, which code-only accounts cannot use
+  (now email code, sign-in only).
+
 ## Not executed
 
 VoiceOver/TalkBack and device font-scaling by a person; contrast audit tooling; EAS cloud builds
