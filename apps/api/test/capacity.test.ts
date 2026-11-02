@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { releaseCapacity, reserveCapacity } from '../src/capacity';
 import { withTx } from '../src/db';
+import { topUpIllustrativeSlots } from '../src/seed/illustrative';
 import { TEST_DB_ADMIN_URL, createTestContext, type TestContext } from '../src/testing';
 import { call } from './helpers';
 
@@ -69,5 +70,21 @@ describe.skipIf(!TEST_DB_ADMIN_URL)('kitchen capacity (H04)', () => {
     expect(detail.body.availability).toBe('FULLY_BOOKED');
     expect(detail.body.slots).toEqual([]);
     await ctx.pool.query(`UPDATE chef_capacity_slots SET reserved_work_units = 0 WHERE chef_id = $1`, [s.chefs.A]);
+  });
+
+  it('staging top-up refills missing sample kitchen times and never duplicates them', async () => {
+    const count = async () => (await ctx.pool.query(`SELECT count(*)::int AS n FROM chef_capacity_slots WHERE chef_id = $1 AND status = 'ACTIVE'`, [s.chefs.A])).rows[0].n as number;
+    expect(await topUpIllustrativeSlots(ctx.pool)).toBe(0); // the seed already filled the week
+    const before = await count();
+    // Simulate time passing: drop the unbooked future windows, as if they had elapsed.
+    const gone = await ctx.pool.query(`DELETE FROM chef_capacity_slots WHERE chef_id = $1 AND starts_at > now() + interval '1 day' AND NOT EXISTS (SELECT 1 FROM capacity_reservations r WHERE r.slot_id = chef_capacity_slots.id) RETURNING total_work_units`, [s.chefs.A]);
+    const standardGone = gone.rows.filter((r) => r.total_work_units === 40).length;
+    const added = await topUpIllustrativeSlots(ctx.pool);
+    expect(standardGone).toBeGreaterThan(0);
+    expect(added).toBe(standardGone);
+    expect(await count()).toBe(before - (gone.rowCount! - standardGone));
+    expect(await topUpIllustrativeSlots(ctx.pool)).toBe(0);
+    const chefB = (await ctx.pool.query(`SELECT count(*)::int AS n FROM chef_capacity_slots WHERE chef_id = $1`, [s.chefs.B])).rows[0].n;
+    expect(chefB).toBe(0);
   });
 });

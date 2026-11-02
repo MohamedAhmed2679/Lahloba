@@ -1,6 +1,6 @@
 import pg from 'pg';
 import { loadServerConfig } from '@lahloba/config';
-import { seedIllustrative } from '../seed/illustrative';
+import { seedIllustrative, topUpIllustrativeSlots } from '../seed/illustrative';
 
 /**
  * Staging demo data: the same clearly labelled ILLUSTRATIVE catalog as development (fictional
@@ -29,6 +29,7 @@ try {
     await client.query('COMMIT');
     console.log('Loaded ILLUSTRATIVE staging data (fictional partners, invented prices).');
   }
+  console.log(`Illustrative kitchen times added: ${await topUpIllustrativeSlots(client)}.`);
 
   if (subjects.length) {
     const sys = (await client.query(`SELECT id FROM app_users WHERE identity_subject = 'dev:seed-system'`)).rows[0]?.id as string | undefined;

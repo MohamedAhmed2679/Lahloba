@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { topUpIllustrativeSlots } from '../seed/illustrative';
 import { z } from 'zod';
 import * as C from '@lahloba/contracts';
 import { canManageBranch, canManageChef } from '@lahloba/domain';
@@ -157,7 +158,11 @@ export function registerOrderRoutes(app: FastifyInstance, ctx: RouteContext) {
   app.get('/v1/internal/sweep', async (req) => {
     const secret = ctx.config.cronSecret;
     if (!secret || req.headers.authorization !== `Bearer ${secret}`) throw notFound('Route');
-    return sweep(ctx.pool, deps(), req.id);
+    const summary = await sweep(ctx.pool, deps(), req.id);
+    // Staging demo only: keep the sample kitchen bookable (never in production).
+    const demoSlotsAdded = ctx.config.env !== 'production' && process.env.LAHLOBA_SEED_ILLUSTRATIVE === 'true'
+      ? await topUpIllustrativeSlots(ctx.pool) : 0;
+    return { ...summary, demoSlotsAdded };
   });
 
   // ---------------- chef

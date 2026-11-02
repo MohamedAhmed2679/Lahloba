@@ -140,16 +140,8 @@ export async function seedIllustrative(db: DbClient) {
     variants: [{ key: 'tawook-eat', mode: 'EAT_NOW', labor: 1200, packaging: 300, chefIngr: 7000, suppliers: true, lead: 90, min: 1, max: 8, ...eatNow }],
   });
 
-  // Illustrative capacity: two service windows a day for chef A over the booking window
-  // (Cairo local 12:00-15:00 and 18:00-21:00), 40 work units each. Chef B has none.
-  await db.query(
-    `INSERT INTO chef_capacity_slots (chef_id, starts_at, ends_at, total_work_units)
-     SELECT $1, (d + w.s) AT TIME ZONE 'Africa/Cairo', (d + w.e) AT TIME ZONE 'Africa/Cairo', 40
-     FROM generate_series(date_trunc('day', now() AT TIME ZONE 'Africa/Cairo'), date_trunc('day', now() AT TIME ZONE 'Africa/Cairo') + interval '6 days', interval '1 day') d
-     CROSS JOIN (VALUES (interval '12 hours', interval '15 hours'), (interval '18 hours', interval '21 hours')) w(s, e)
-     WHERE (d + w.s) AT TIME ZONE 'Africa/Cairo' > now() + interval '3 hours'`,
-    [chefs.A],
-  );
+  // Illustrative capacity: two service windows a day for chef A over the booking window.
+  await topUpIllustrativeSlots(db);
 
   // Illustrative delivery tariffs between public areas. Distance bands are an OPEN founder decision;
   // these values only exercise the rules (final 20-75 EGP, ingredient trip 20 EGP when eligible).
@@ -229,3 +221,26 @@ export async function seedIllustrative(db: DbClient) {
 }
 
 export type SeedResult = Awaited<ReturnType<typeof seedIllustrative>>;
+
+/**
+ * ILLUSTRATIVE kitchen times for the sample chef A: Cairo 12:00-15:00 and 18:00-21:00, 40 work
+ * units each, for the next 7 days. Adds only windows that are missing (never overlaps, never
+ * touches booked slots), so it is safe to run on every staging build and every daily sweep.
+ * Chef B deliberately has none. Never call this in production.
+ */
+export async function topUpIllustrativeSlots(db: Pick<DbClient, 'query'>, days = 7): Promise<number> {
+  const r = await db.query(
+    `INSERT INTO chef_capacity_slots (chef_id, starts_at, ends_at, total_work_units)
+     SELECT c.id, (d + w.s) AT TIME ZONE 'Africa/Cairo', (d + w.e) AT TIME ZONE 'Africa/Cairo', 40
+     FROM chefs c JOIN app_users u ON u.id = c.owner_user_id AND u.identity_subject = $1
+     CROSS JOIN generate_series(date_trunc('day', now() AT TIME ZONE 'Africa/Cairo'),
+                                date_trunc('day', now() AT TIME ZONE 'Africa/Cairo') + make_interval(days => $2::int - 1), interval '1 day') d
+     CROSS JOIN (VALUES (interval '12 hours', interval '15 hours'), (interval '18 hours', interval '21 hours')) w(s, e)
+     WHERE c.is_illustrative
+       AND (d + w.s) AT TIME ZONE 'Africa/Cairo' > now() + interval '3 hours'
+       AND NOT EXISTS (SELECT 1 FROM chef_capacity_slots x WHERE x.chef_id = c.id AND x.status = 'ACTIVE'
+                       AND x.starts_at < (d + w.e) AT TIME ZONE 'Africa/Cairo' AND x.ends_at > (d + w.s) AT TIME ZONE 'Africa/Cairo')`,
+    [SAMPLE_SUBJECTS.chefA, days],
+  );
+  return r.rowCount ?? 0;
+}

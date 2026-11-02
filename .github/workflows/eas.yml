@@ -6,7 +6,7 @@ name: eas
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, feature/expo-platform]
 jobs:
   build:
     runs-on: ubuntu-latest
